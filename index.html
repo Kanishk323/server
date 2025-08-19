@@ -1,1 +1,3872 @@
-pkp
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Card Battle Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #a8dadc 0%, #457b9d 100%);
+            /* More engaging gradient background */
+            text-align: center;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+            /* Prevent horizontal scroll on animations */
+        }
+
+        #game-container {
+            max-width: 900px;
+            /* Wider for more elements */
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            padding: 25px;
+            box-sizing: border-box;
+            margin-top: 20px;
+            position: relative;
+            /* For absolute positioning of deck/discard */
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        h1 {
+            color: #2b6cb0;
+            font-size: 2.5em;
+            margin-bottom: 25px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .player-area-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 2px solid #457b9d;
+            border-radius: 12px;
+            padding: 15px;
+            background-color: #f0f8ff;
+            margin-bottom: 20px;
+        }
+
+        .player-area-container.player1 {
+            background-color: #e6f7ff;
+        }
+
+        .player-area-container.player2 {
+            background-color: #fff0e6;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            padding: 8px 12px;
+            background-color: #e2e8f0;
+            border-radius: 10px;
+            font-weight: bold;
+            color: #4a5568;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .ip-bar {
+            width: 100px;
+            /* Fixed width for the bar itself */
+            height: 18px;
+            background-color: #cbd5e0;
+            border-radius: 9px;
+            overflow: hidden;
+            margin-left: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .ip-fill {
+            height: 100%;
+            background-color: #48bb78;
+            /* Green for health */
+            width: 100%;
+            /* Default to full */
+            transition: width 1.2s ease-out, background-color 1.2s ease-out;
+            /* Increased transition duration */
+            border-radius: 9px;
+        }
+
+        .ip-fill.low {
+            background-color: #e53e3e;
+            /* Red for low health */
+        }
+
+        .ip-fill.medium {
+            background-color: #f6ad55;
+            /* Orange for medium health */
+        }
+
+        .irrational-indicator,
+        .imaginary-indicator {
+            font-size: 1.1em;
+            margin-left: 6px;
+            color: #e53e3e;
+            /* Red warning color */
+            font-weight: bold;
+        }
+
+        #game-mode-select,
+        #ai-difficulty-select,
+        #branch-select {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        #game-mode-select label,
+        #ai-difficulty-select label,
+        #branch-select label {
+            font-size: 1.1em;
+            color: #444;
+        }
+
+        #game-mode-select select,
+        #ai-difficulty-select select,
+        #branch-select select {
+            padding: 10px 15px;
+            border: 2px solid #a0aec0;
+            border-radius: 8px;
+            font-size: 1em;
+            background-color: #edf2f7;
+            color: #2d3748;
+            width: 80%;
+            max-width: 250px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%234a5568' d='M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 1.2em;
+        }
+
+        .game-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            /* Allow buttons to wrap on smaller screens */
+        }
+
+        .game-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+        }
+
+        .game-button:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .hand,
+        .play-area {
+            border: 2px dashed #a0aec0;
+            padding: 15px;
+            margin: 10px 0;
+            min-height: 160px;
+            background-color: #edf2f7;
+            border-radius: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .card {
+            width: 90px;
+            height: 130px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            /* Changed to space-between */
+            align-items: center;
+            border-radius: 10px;
+            cursor: pointer;
+            /* Changed to pointer for click effect */
+            user-select: none;
+            touch-action: manipulation;
+            /* Allow double tap */
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out, opacity 0.3s ease-out;
+            position: relative;
+            padding: 5px;
+            box-sizing: border-box;
+            opacity: 1;
+            /* Default to visible for hand */
+        }
+
+        .card.number {
+            background-color: #3182ce;
+        }
+
+        /* Blue */
+        .card.action {
+            background-color: #dd6b20;
+        }
+
+        /* Orange */
+        .card.theorem {
+            background-color: #e53e3e;
+        }
+
+        /* Red */
+        .card:active {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-top {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding-top: 5px;
+            /* Added padding */
+        }
+
+        .card-icon {
+            font-size: 2.2em;
+            /* Larger emoji/SVG icon */
+            margin-bottom: 5px;
+        }
+
+        .card-name {
+            font-size: 0.9em;
+            /* Smaller font for name */
+            text-align: center;
+            line-height: 1.1;
+        }
+
+        .card-cost {
+            font-size: 0.8em;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            /* Added margin */
+        }
+
+        .card-summary-text {
+            font-size: 0.65em;
+            /* Very small for summary */
+            font-weight: normal;
+            text-align: center;
+            line-height: 1.1;
+            padding: 0 2px;
+            flex-grow: 1;
+            /* Allows it to take available space */
+            display: flex;
+            /* Use flex to center content vertically */
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            /* Hide overflow text */
+            text-overflow: ellipsis;
+            /* Add ellipsis for overflow */
+            white-space: normal;
+            /* Allow wrapping */
+            word-break: break-word;
+            /* Break long words */
+            color: rgba(255, 255, 255, 0.8);
+            /* Slightly lighter color for summary */
+        }
+
+        .card-description-text {
+            font-size: 0.7em;
+            font-weight: normal;
+            text-align: center;
+            line-height: 1.2;
+            padding: 0 2px;
+            display: none;
+            /* Hidden by default */
+            flex-grow: 1;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Toggle visibility for card details */
+        .card.show-description .card-top,
+        .card.show-description .card-summary-text {
+            display: none;
+        }
+
+        .card.show-description .card-description-text {
+            display: flex;
+            /* Use flex to center content vertically */
+        }
+
+        /* Deck and Discard Pile Visuals */
+        .deck-pile,
+        .discard-pile {
+            position: absolute;
+            width: 90px;
+            height: 130px;
+            border-radius: 10px;
+            background-color: #607d8b;
+            /* Grey-blue for deck */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: all 0.3s ease-out;
+            border: 2px solid #455a64;
+            z-index: 1;
+            /* Below cards in hand */
+        }
+
+        .deck-pile {
+            top: 20px;
+            left: 20px;
+            background-color: #607d8b;
+        }
+
+        .discard-pile {
+            top: 20px;
+            right: 20px;
+            background-color: #b0bec5;
+            /* Lighter grey for discard */
+        }
+
+        .deck-pile.empty,
+        .discard-pile.empty {
+            border: 2px dashed #ccc;
+            background-color: #e0e0e0;
+            color: #888;
+        }
+
+        .deck-pile span,
+        .discard-pile span {
+            position: absolute;
+            bottom: 5px;
+            font-size: 0.8em;
+        }
+
+        /* Card Animation for drawing */
+        @keyframes drawCardAnimation {
+            from {
+                transform: translate(-150px, -150px) scale(0.5);
+                /* Start from deck position */
+                opacity: 0;
+            }
+
+            to {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .card.drawing {
+            animation: drawCardAnimation 1.2s ease-out forwards;
+            /* Increased duration */
+        }
+
+        /* Card Animation for playing */
+        @keyframes playCardAnimation {
+            from {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateY(-50px) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .card.playing {
+            animation: playCardAnimation 1.2s ease-out forwards;
+            /* Increased duration */
+        }
+
+        /* IP change animation */
+        @keyframes ipChangePulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 15px rgba(255, 255, 0, 0.7);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .ip-value-display.pulse {
+            animation: ipChangePulse 1.2s ease-out;
+            /* Increased duration */
+        }
+
+        /* Floating Text Feedback */
+        .floating-text {
+            position: absolute;
+            font-size: 1.8em;
+            /* Larger text */
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(0);
+            transition: transform 2.5s ease-out, opacity 2.5s ease-out;
+            /* Increased transition duration */
+            z-index: 100;
+            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.6);
+            /* Stronger shadow */
+        }
+
+        .floating-text.damage {
+            color: #e53e3e;
+            /* Red for damage */
+        }
+
+        .floating-text.heal {
+            color: #48bb78;
+            /* Green for heal */
+        }
+
+        .floating-text.show {
+            opacity: 1;
+            transform: translateY(-70px);
+            /* Move further up */
+        }
+
+        /* Help Button and Modal */
+        #help-button {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+
+        #help-button:hover {
+            background-color: #0056b3;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            text-align: left;
+        }
+
+        .modal-close-button {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.8em;
+            cursor: pointer;
+            color: #555;
+        }
+
+        .modal-close-button:hover {
+            color: #333;
+        }
+
+        .modal-content h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+
+        .modal-section h3 {
+            font-size: 1.4em;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .modal-section p,
+        .modal-section ul {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .card-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .card-info {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-info strong {
+            color: #3182ce;
+        }
+
+        .branch-info {
+            background-color: #e2e8f0;
+            border-left: 4px solid #4299e1;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+        }
+
+        .branch-info h4 {
+            font-weight: bold;
+            color: #2b6cb0;
+            margin-bottom: 5px;
+        }
+
+        .branch-info p {
+            font-size: 0.95em;
+            color: #4a5568;
+        }
+
+        /* Chatbot Modal Styles */
+        #chatbot-modal {
+            z-index: 1001;
+            /* Above help modal */
+        }
+
+        #chatbot-modal .modal-content {
+            max-width: 500px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-history-display {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f7fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-message {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+
+        .chat-message.user {
+            background-color: #3182ce;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-message.bot {
+            background-color: #e2e8f0;
+            color: #2d3748;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        #chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #a0aec0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        #send-chat-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #send-chat-btn:hover {
+            background-color: #45a049;
+        }
+
+        #chat-loading-indicator {
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+        }
+
+        /* Game History Modal */
+        #game-history-modal .modal-content {
+            max-width: 600px;
+            height: 700px;
+        }
+
+        #game-history-log {
+            height: calc(100% - 60px);
+            /* Adjust height to fit header and buttons */
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f7fafc;
+            text-align: left;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .history-entry {
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px dotted #eee;
+        }
+
+        .history-entry:last-child {
+            border-bottom: none;
+        }
+
+        .history-entry strong {
+            color: #2b6cb0;
+        }
+
+        .history-entry.player1-action strong {
+            color: #3182ce;
+        }
+
+        .history-entry.player2-action strong {
+            color: #dd6b20;
+        }
+
+        .history-entry.game-event {
+            font-style: italic;
+            color: #666;
+        }
+
+        #player2-branch-selection-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .angle-slider-container {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e2e8f0;
+            border-radius: 8px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .status-bar {
+                font-size: 0.9em;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .ip-bar {
+                width: 80px;
+            }
+
+            #game-mode-select select,
+            #ai-difficulty-select select,
+            #branch-select select,
+            .game-button {
+                width: 90%;
+                padding: 10px 15px;
+                font-size: 1em;
+            }
+
+            .card {
+                width: 70px;
+                height: 100px;
+                font-size: 12px;
+            }
+
+            .card-icon {
+                font-size: 1.8em;
+            }
+
+            .hand,
+            .play-area {
+                min-height: 120px;
+                padding: 10px;
+            }
+
+            .modal-content {
+                padding: 15px;
+            }
+
+            .modal-content h2 {
+                font-size: 1.5em;
+            }
+
+            .modal-section h3 {
+                font-size: 1.2em;
+            }
+
+            .game-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .deck-pile,
+            .discard-pile {
+                width: 70px;
+                height: 100px;
+                font-size: 0.7em;
+            }
+
+            .deck-pile {
+                top: 10px;
+                left: 10px;
+            }
+
+            .discard-pile {
+                top: 10px;
+                right: 10px;
+            }
+
+            #chatbot-modal .modal-content {
+                height: 90%;
+            }
+
+            #chat-input-container {
+                flex-direction: column;
+            }
+
+            #send-chat-btn {
+                width: 100%;
+            }
+        }
+    </style>
+    <!-- Socket.io for multiplayer functionality -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body>
+    <div id="game-container">
+        <h1>Mathematical Card Battle</h1>
+        <div id="game-mode-select">
+            <label for="game-mode">Game Mode Chuno:</label>
+            <select id="game-mode">
+                <option value="vs_ai">AI ke saath khelo</option>
+                <option value="vs_local_player">Local Player ke saath khelo</option>
+            </select>
+        </div>
+        <div id="ai-difficulty-select" style="display: block;">
+            <label for="ai-difficulty">AI ki Difficulty chuno:</label>
+            <select id="ai-difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+        <div id="branch-select">
+            <label for="branch-player1">Apni Math Branch chuno (Player 1):</label>
+            <select id="branch-player1" onchange="displayBranchEffects('player1')">
+                <option value="Algebra">Algebra</option>
+                <option value="Geometry">Geometry</option>
+                <option value="Calculus">Calculus</option>
+                <option value="Number Theory">Number Theory</option>
+                <option value="Probability">Probability</option>
+                <option value="Complex Analysis">Complex Analysis</option>
+                <option value="Trigonometry">Trigonometry</option>
+            </select>
+            <div id="branch-effect-display-player1" class="branch-info w-full max-w-sm" style="display: none;"></div>
+
+            <div id="player2-branch-selection-container">
+                <label for="branch-player2">Player 2 ki Math Branch chuno:</label>
+                <select id="branch-player2" onchange="displayBranchEffects('player2')">
+                    <option value="Algebra">Algebra</option>
+                    <option value="Geometry">Geometry</option>
+                    <option value="Calculus">Calculus</option>
+                    <option value="Number Theory">Number Theory</option>
+                    <option value="Probability">Probability</option>
+                    <option value="Complex Analysis">Complex Analysis</option>
+                    <option value="Trigonometry">Trigonometry</option>
+                </select>
+                <div id="branch-effect-display-player2" class="branch-info w-full max-w-sm" style="display: none;"></div>
+            </div>
+
+            <button class="game-button" onclick="startGame()">Game Start karo</button>
+        </div>
+
+        <div id="game-ui" style="display: none;">
+            <div class="deck-pile" id="deck-pile">
+                Deck
+                <span id="deck-count">0</span>
+            </div>
+            <div class="discard-pile" id="discard-pile">
+                Discard
+                <span id="discard-count">0</span>
+            </div>
+
+            <!-- Player 2 Area -->
+            <div class="player-area-container player2">
+                <div class="status-bar">
+                    <span id="player2-name-display">Player 2 IP:</span>
+                    <span id="player2-ip" class="ip-value-display">100.00</span>
+                    <div class="ip-bar">
+                        <div id="player2-ip-fill" class="ip-fill"></div>
+                    </div>
+                    <span id="player2-irrational-indicator" class="irrational-indicator" style="display: none;">($\sqrt{-1}$)</span>
+                    <span id="player2-imaginary-indicator" class="imaginary-indicator" style="display: none;">(i)</span>
+                    <span id="player2-tokens-display">Player 2 Tokens:</span>
+                    <span id="player2-tokens">0</span>
+                </div>
+                <div id="player2-angle-slider-container" class="angle-slider-container" style="display: none;">
+                    <label for="player2-angle-slider">Angle: <span id="player2-angle-value">45</span>°</label>
+                    <input type="range" min="0" max="90" value="45" class="slider w-full" id="player2-angle-slider">
+                </div>
+                <div class="hand" id="player2-hand" style="min-height: 50px;">Player 2's Hand</div>
+                <div class="play-area" id="player2-play-area" style="min-height: 50px;">Player 2's Play Area</div>
+            </div>
+
+            <!-- Player 1 Area -->
+            <div class="player-area-container player1">
+                <div class="status-bar">
+                    <span id="player1-name-display">Aapka IP:</span>
+                    <span id="player1-ip" class="ip-value-display">100.00</span>
+                    <div class="ip-bar">
+                        <div id="player1-ip-fill" class="ip-fill"></div>
+                    </div>
+                    <span id="player1-irrational-indicator" class="irrational-indicator" style="display: none;">($\sqrt{-1}$)</span>
+                    <span id="player1-imaginary-indicator" class="imaginary-indicator" style="display: none;">(i)</span>
+                    <span id="player1-tokens-display">Tokens:</span>
+                    <span id="player1-tokens">10</span>
+                </div>
+                 <div id="player1-angle-slider-container" class="angle-slider-container" style="display: none;">
+                    <label for="player1-angle-slider">Angle Control: <span id="player1-angle-value">45</span>°</label>
+                    <input type="range" min="0" max="90" value="45" class="slider w-full" id="player1-angle-slider">
+                </div>
+                <div class="hand" id="player1-hand">Aapka Hand (Card description ke liye single tap, play karne ke liye double tap)</div>
+                <div class="play-area" id="player1-play-area">Aapka Play Area (Played cards yahan dikhenge)</div>
+            </div>
+            <div class="text-lg font-semibold text-blue-700 my-4" id="current-phase-display"></div>
+
+            <div class="game-buttons">
+                <button id="end-play-phase-button" class="game-button" disabled>End Play Phase</button>
+                <button id="end-turn-button" class="game-button" disabled>End Turn</button>
+            </div>
+            <div class="game-buttons">
+                <button id="help-button" class="game-button" onclick="openHelpModal()">Help</button>
+                <button id="history-button" class="game-button" onclick="openGameHistoryModal()">Game History</button>
+                <button id="chatbot-button" class="game-button" onclick="openChatbotModal()">Chat with Math Bot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" onclick="closeHelpModal()">×</span>
+            <h2>Game Rules & Card Powers</h2>
+            <div class="modal-section">
+                <h3>Game Objective</h3>
+                <p>Apne opponent ke Intellectual Power (IP) ko 0 tak kam karo, usse pehle ki woh aapka kam kare. Cards play karke IP ko affect karte hain.</p>
+            </div>
+            <div class="modal-section">
+                <h3>Kaise Khelen</h3>
+                <ul>
+                    <li><strong>Game Mode Select:</strong> Game start pe choose karo ki AI ke saath khelna hai ya local player ke saath. AI ke liye difficulty (Easy, Medium, Hard) bhi chuno.</li>
+                    <li><strong>Branch Select:</strong> Har player apni favorite math branch chunta hai. Har branch ke apne pros aur cons hain.</li>
+                    <li><strong>Phases:</strong> Har turn mein 4 phases hote hain:
+                        <ul>
+                            <li><strong>Draw Phase:</strong> Aap automatically cards draw karoge.</li>
+                            <li><strong>Play Phase:</strong> Apne hand se cards play karo. Card ki description dekhne ke liye <strong>single tap</strong> karo. Card play karne ke liye <strong>double tap</strong> karo. Jab tak tokens hain, kitne bhi cards play kar sakte ho. Done hone pe "End Play Phase" click karo.</li>
+                            <li><strong>Battle Phase:</strong> Aapke played cards ke effects resolve honge, aur phir opponent apna turn lega.</li>
+                            <li><strong>Heal Phase:</strong> Koi bhi ongoing healing effects apply honge. "End Turn" click karke next round pe jao.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Tokens:</strong> Har card ki ek 'Cost' hoti hai. Card play karne ke liye utne tokens hone chahiye. Card play karne par ek sound bajega. Har turn mein tokens replenish hote hain.</li>
+                    <li><strong>IP (Intellectual Power):</strong> Yeh aapki health hai. Agar 0 ya usse kam ho gayi, toh aap "Grace Period" mein chale jaoge.</li>
+                    <li><strong>Grace Period:</strong> Jab aapka IP 0 ya usse kam hota hai, aapko 3 extra rounds (aapke 3 turn aur opponent ke 3 turn) milte hain apne aap ko heal karne ke liye. Agar grace period ke end tak aapka IP 0 ya usse kam rehta hai, toh aap haar jaoge.</li>
+                    <li><strong>Deck & Discard:</strong> Cards deck se draw hote hain. Jab play hote hain, toh discard pile mein jaate hain. Jab deck khali ho jata hai, discard pile shuffle hoke naya deck ban jata hai.</li>
+                </ul>
+            </div>
+            <div class="modal-section">
+                <h3>Card Types</h3>
+                <ul>
+                    <li><strong>Number Cards:</strong> Direct numerical operations karte hain (e.g., add/subtract specific values).</li>
+                    <li><strong>Action Cards:</strong> IP par transformations apply karte hain (e.g., derivative, limit, square root).</li>
+                    <li><strong>Theorem Cards:</strong> Powerful, often game-changing effects hote hain (e.g., Pi/Naturalize combo, Euler's Identity).</li>
+                </ul>
+            </div>
+            <div class="modal-section">
+                <h3>Mathematical Branches</h3>
+                <div id="modal-branch-effects-list"></div>
+            </div>
+            <div class="modal-section">
+                <h3>Card Powers</h3>
+                <div id="card-powers-list" class="card-list">
+                    <!-- Card info will be dynamically loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game History Modal -->
+    <div id="game-history-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" onclick="closeGameHistoryModal()">×</span>
+            <h2>Game History</h2>
+            <div id="game-history-log">
+                <!-- History entries will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot Modal -->
+    <div id="chatbot-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" onclick="closeChatbotModal()">×</span>
+            <h2>Math Bot Chat</h2>
+            <div id="chat-history-display"></div>
+            <div id="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Apna sawaal yahan type karo...">
+                <button id="send-chat-btn" onclick="sendChatMessage()">Send</button>
+            </div>
+            <div id="chat-loading-indicator" style="display: none;">Typing...</div>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let gameMode = 'vs_ai'; // 'vs_ai' or 'vs_local_player'
+        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
+        let players = {
+            player1: {
+                ip: 100.0,
+                tokens: 10,
+                hand: [],
+                blockDamage: 0,
+                damageOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                healOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                doubleDamageNextTurn: false,
+                reflectDamage: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                isIPIrrational: false,
+                isIPImaginary: false,
+                selectedBranch: '',
+                inGracePeriod: false,
+                graceRoundsRemaining: -1,
+                angle: 45 // New: Angle for Trigonometry branch
+            },
+            player2: { // This will be AI or Local Player 2
+                ip: 100.0,
+                tokens: 10,
+                hand: [],
+                blockDamage: 0,
+                damageOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                healOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                doubleDamageNextTurn: false,
+                reflectDamage: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                isIPIrrational: false,
+                isIPImaginary: false,
+                selectedBranch: '',
+                inGracePeriod: false,
+                graceRoundsRemaining: -1,
+                angle: 45 // New: Angle for Trigonometry branch
+            }
+        };
+        let currentTurn = 0; // Tracks game turns
+        let currentPlayer = 'player1'; // 'player1' or 'player2'
+        let isGameOver = false;
+
+        // Deck and Hand Management
+        let deck = []; // Shared deck
+        let discardPile = []; // Shared discard pile
+        const MAX_HAND_SIZE = 5;
+        const CARDS_TO_DRAW_PER_TURN = 2;
+        const AI_MAX_HAND_SIZE = 5;
+        const AI_CARDS_TO_DRAW_PER_TURN = 2;
+
+        // Game Phases
+        let currentPhase = 'draw'; // 'draw', 'play', 'battle', 'heal'
+        let playedCardsThisTurn = []; // Cards played by current player in current Play Phase
+
+        // Tone.js Player for background music and sound effects
+        let playerSynth;
+        let damageSound;
+        let healSound;
+        let cardDrawSound;
+        let cardPlaySound;
+        let winSound;
+        let loseSound;
+
+        // Chatbot state
+        let chatHistory = [];
+        // IMPORTANT: To enable the "Chat with Math Bot" feature,
+        // you must replace the placeholder key below with your own valid Google Gemini API key.
+        const API_KEY = "AIzaSyB_wWYdPdcyJparBp-2_0EZyMCuaRgHYfA";
+
+        // Double tap detection variables
+        let lastTapTime = 0;
+        const DOUBLE_TAP_THRESHOLD = 300; // milliseconds
+
+        // Game History Log
+        let gameHistoryLog = [];
+
+        // Custom alert/message box function
+        function showMessage(message, duration = 8000) { // Increased duration for messages
+            const messageBox = document.createElement('div');
+            messageBox.className = 'fixed inset-x-0 top-5 mx-auto flex items-center justify-center bg-blue-600 text-white p-4 rounded-lg shadow-xl z-50 transition-all duration-1000 transform opacity-0 scale-90'; // Increased animation duration
+            messageBox.style.maxWidth = '90%';
+            messageBox.innerHTML = `<p class="text-xl font-semibold">${message}</p>`; // Larger font
+            document.body.appendChild(messageBox);
+
+            // Animate in
+            setTimeout(() => {
+                messageBox.style.opacity = '1';
+                messageBox.style.transform = 'scale(1)';
+            }, 10);
+
+            // Animate out and remove
+            setTimeout(() => {
+                messageBox.style.opacity = '0';
+                messageBox.style.transform = 'scale(0.9)';
+                messageBox.addEventListener('transitionend', () => messageBox.remove());
+            }, duration);
+        }
+
+        // Function to show floating text for IP changes
+        function showFloatingText(value, type, targetElementId) {
+            const targetElement = document.getElementById(targetElementId);
+            if (!targetElement) return;
+            const rect = targetElement.getBoundingClientRect();
+
+            const floatingText = document.createElement('div');
+            floatingText.textContent = (type === 'heal' ? '+' : '-') + Math.abs(value).toFixed(0);
+            floatingText.className = `floating-text ${type}`;
+            floatingText.style.left = `${rect.left + rect.width / 2}px`;
+            floatingText.style.top = `${rect.top - 20}px`; // Start slightly above
+            document.body.appendChild(floatingText);
+
+            // Trigger animation
+            setTimeout(() => {
+                floatingText.classList.add('show');
+            }, 10);
+
+            // Remove after animation
+            floatingText.addEventListener('transitionend', () => {
+                floatingText.remove();
+            }, {
+                once: true
+            });
+        }
+
+        // Log game events to history
+        function logGameEvent(message, type = 'game-event') {
+            const entry = {
+                turn: currentTurn,
+                phase: currentPhase,
+                message: message,
+                type: type // 'game-event', 'player1-action', 'player2-action'
+            };
+            gameHistoryLog.push(entry);
+            console.log(`Turn ${currentTurn} - ${currentPhase}: ${message}`); // For debugging
+
+            // Optionally update history modal if open
+            if (document.getElementById('game-history-modal').classList.contains('show')) {
+                updateGameHistoryDisplay();
+            }
+        }
+
+        // Mathematical Branch Pros and Cons
+        const branchEffects = {
+            "Algebra": {
+                pros: "Game start pe +5 Tokens milenge. Aapke Number cards +1 extra value denge.",
+                cons: "Opponent ka base damage +2 zyada hoga.",
+                apply: (player) => {
+                    players[player].tokens += 5;
+                }
+            },
+            "Geometry": {
+                pros: "Game start pe +15 Player IP milega. Aapko pehle 3 turns ke liye +5 Block milega.",
+                cons: "Aapke cards ki cost +1 token zyada hogi.",
+                apply: (player) => {
+                    players[player].ip += 15;
+                    players[player].blockDamage += 5;
+                }
+            },
+            "Calculus": {
+                pros: "Aapke 'Damage over Time' aur 'Heal over Time' effects 1 turn zyada chalenge.",
+                cons: "Aapke starting hand mein 1 card kam hoga.",
+                apply: () => { /* Applied in effect resolution */ },
+                initial_hand_size_modifier: -1
+            },
+            "Number Theory": {
+                pros: "Har turn +2 Tokens milne ka 20% chance hai.",
+                cons: "Aapke Number cards ka 10% chance hai ki woh 0 damage karein.",
+                apply: () => { /* Applied per turn */ }
+            },
+            "Probability": {
+                pros: "Sab random effects (jaise random damage) ki range 50% badh jayegi.",
+                cons: "Har turn 1 IP lose karne ka 15% chance hai.",
+                apply: () => { /* Applied per turn/effect */ }
+            },
+            "Complex Analysis": {
+                pros: "Invert aur Swap effects se aapko 10 IP heal hoga.",
+                cons: "Invert ya Swap effects wale Theorem cards ki cost +2 tokens zyada hogi.",
+                apply: () => { /* Applied in playCard */ }
+            },
+            "Trigonometry": {
+                pros: "Aapke paas ek Angle Slider hoga. Angle ko strategically set karke apne cards ko boost karo.",
+                cons: "Opponent ke IP ko multiply/divide karne wale cards ka asar 25% zyada hoga.",
+                apply: () => { /* Applied in effect resolution */ }
+            }
+        };
+
+        // All Cards with Icons and descriptions (Categorized by Type)
+        const allCards = [
+            // Number Cards (Direct Value Change)
+            {
+                name: 'Plus 5',
+                icon: '➕5️⃣',
+                type: 'Number',
+                cost: 1,
+                effect: 'direct_value_change',
+                value: 5,
+                target: 'opponent',
+                description: 'Opponent ke IP ko 5 se kam karta hai.',
+                summary: 'IP -5'
+            }, {
+                name: 'Heal 10',
+                icon: '❤️‍🩹',
+                type: 'Number',
+                cost: 2,
+                effect: 'direct_value_change',
+                value: 10,
+                target: 'self',
+                description: 'Apne IP ko 10 se badhata hai.',
+                summary: 'Apna IP +10'
+            }, {
+                name: 'Add 10',
+                icon: '➕🔟',
+                type: 'Number',
+                cost: 2,
+                effect: 'direct_value_change',
+                value: 10,
+                target: 'opponent',
+                description: 'Opponent ke IP ko 10 se kam karta hai.',
+                summary: 'IP -10'
+            },
+
+            // Action Cards (Transformations)
+            {
+                name: 'Multiply by 2',
+                icon: '✖️2️⃣',
+                type: 'Action',
+                cost: 3,
+                effect: 'multiply_ip',
+                value: 2,
+                target: 'opponent',
+                description: 'Opponent ke IP ko 2 se multiply karta hai.',
+                summary: 'Opponent IP x2'
+            }, {
+                name: 'Divide by 2',
+                icon: '➗2️⃣',
+                type: 'Action',
+                cost: 3,
+                effect: 'divide_ip',
+                value: 2,
+                target: 'opponent',
+                description: 'Opponent ke IP ko 2 se divide karta hai.',
+                summary: 'Opponent IP /2'
+            }, {
+                name: 'Square IP',
+                icon: '²️⃣',
+                type: 'Action',
+                cost: 4,
+                effect: 'square_ip',
+                target: 'self',
+                description: 'Apne IP ka square karta hai (e.g., 10 -> 100). High-risk self-buff.',
+                summary: 'Self IP²'
+            }, {
+                name: 'Square Root IP',
+                icon: '√',
+                type: 'Action',
+                cost: 3,
+                effect: 'square_root_ip',
+                target: 'opponent',
+                description: 'Opponent ke IP ka square root leta hai (e.g., 100 -> 10).',
+                summary: '√Opponent IP'
+            }, {
+                name: 'Absolute Value',
+                icon: '📏',
+                type: 'Action',
+                cost: 2,
+                effect: 'absolute_value_ip',
+                target: 'self',
+                description: 'apne  negative IP ko positive banata hai.',
+                summary: '|Opponent IP|'
+            }, {
+                name: 'Derivative ($d/dx$)',
+                icon: '📈',
+                type: 'Action',
+                cost: 4,
+                effect: 'derivative_effect',
+                branch: 'Calculus',
+                target: 'opponent',
+                description: 'Opponent ke IP ko 0 kar deta hai (constant ka derivative 0 hota hai).',
+                summary: 'Opponent IP = 0'
+            }, {
+                name: 'Logarithm ($\\ln(x)$)',
+                icon: '🌳',
+                type: 'Action',
+                cost: 3,
+                effect: 'logarithm_effect',
+                branch: 'Algebra',
+                target: 'opponent',
+                description: 'Opponent ke IP ka natural logarithm leta hai. Positive IP par hi kaam karta hai.',
+                summary: 'ln(Opponent IP)'
+            }, {
+                name: 'Draw Card',
+                icon: '🃏',
+                type: 'Action',
+                cost: 1,
+                effect: 'draw_card',
+                value: 1,
+                description: 'Ek extra card draw karta hai.',
+                summary: '+1 Card'
+            }, {
+                name: 'Random Damage (1-10)',
+                icon: '❓',
+                type: 'Action',
+                cost: 2,
+                effect: 'random_damage',
+                value: {
+                    min: 1,
+                    max: 10
+                },
+                target: 'opponent',
+                description: 'Opponent ko 1 se 10 tak random damage deta hai.',
+                summary: 'IP -Rand(1-10)'
+            }, {
+                name: 'Reciprocal',
+                icon: '1️⃣/x',
+                type: 'Action',
+                cost: 3,
+                effect: 'reciprocal_ip',
+                target: 'opponent',
+                description: 'Opponent ke IP ka reciprocal leta hai (1/IP). 100 ko 0.01 bana deta hai!',
+                summary: '1/Opponent IP'
+            }, {
+                name: 'Power of 0',
+                icon: '⁰',
+                type: 'Action',
+                cost: 1,
+                effect: 'power_of_zero',
+                target: 'opponent',
+                description: 'Opponent ke IP ko 1 kar deta hai (agar IP 0 na ho).',
+                summary: 'Opponent IP = 1'
+            }, {
+                name: 'Copy IP',
+                icon: '📋',
+                type: 'Action',
+                cost: 3,
+                effect: 'copy_ip',
+                target: 'self',
+                description: 'Apne IP ko Opponent ke current IP ke barabar karta hai.',
+                summary: 'Self IP = Opponent IP'
+            }, {
+                name: 'Token Chori',
+                icon: '💸',
+                type: 'Action',
+                cost: 2,
+                effect: 'steal_token',
+                value: 2,
+                target: 'opponent',
+                description: 'Opponent se 2 tokens chori karta hai.',
+                summary: 'Tokens -2 (Opponent)'
+            }, {
+                name: 'Prime Decomposition',
+                icon: '🧩',
+                type: 'Action',
+                cost: 3,
+                effect: 'prime_factor_damage',
+                branch: 'Number Theory',
+                target: 'opponent',
+                description: 'Opponent ke IP ke sabse bade prime factor ke barabar damage deta hai (IP ko integer banaya jayega).',
+                summary: 'Dmg = LPF(IP)'
+            },
+
+            // Theorem Cards (Powerful, often game-changing)
+            {
+                name: 'Invert IP Sign',
+                icon: '➖➕',
+                type: 'Theorem',
+                cost: 6,
+                effect: 'invert_sign_ip',
+                target: 'opponent',
+                description: 'Opponent ke IP ka sign change karta hai (e.g., 80 -> -80).',
+                summary: 'Opponent IP -> -IP'
+            }, {
+                name: 'Factorial (!)',
+                icon: '🔢!',
+                type: 'Theorem',
+                cost: 5,
+                effect: 'factorial_ip',
+                branch: 'Number Theory',
+                target: 'self',
+                description: 'Apne IP ko uske factorial se replace karta hai. Sirf 0-12 ke beech ke integers par kaam karta hai. High-risk self-buff.',
+                summary: 'Self IP -> IP!'
+            }, {
+                name: 'Gamma Function ($\\Gamma$)',
+                icon: 'Γ',
+                type: 'Theorem',
+                cost: 6,
+                effect: 'gamma_function_ip',
+                branch: 'Calculus',
+                target: 'self',
+                description: 'Apne IP par Gamma function (factorial ka generalization) apply karta hai. High-risk self-buff.',
+                summary: 'Self IP -> Γ(IP)'
+            }, {
+                name: 'Pi ($\\pi$)',
+                icon: '🥧',
+                type: 'Theorem',
+                cost: 2,
+                effect: 'divide_by_pi',
+                branch: 'Geometry',
+                target: 'opponent',
+                description: 'Opponent ke IP ko $\\pi$ se divide karta hai, making it irrational.',
+                summary: 'IP / $\\pi$ (Irrational)'
+            }, {
+                name: 'Swap IPs',
+                icon: '🔄',
+                type: 'Theorem',
+                cost: 4,
+                effect: 'swap_ips',
+                branch: 'Complex Analysis',
+                description: 'Apne IP ko opponent ke IP se swap karta hai.',
+                summary: 'Swap IPs'
+            }, {
+                name: 'Triangle Inequality',
+                icon: '🔺',
+                type: 'Theorem',
+                cost: 5,
+                effect: 'block_damage',
+                branch: 'Geometry',
+                value: 10,
+                target: 'self',
+                description: 'Apne next 10 damage ko block karta hai.',
+                summary: 'Block 10 Damage'
+            }, {
+                name: "Euler's Identity",
+                icon: '✨',
+                type: 'Theorem',
+                cost: 10,
+                effect: 'one_hit_ko_chance',
+                branch: 'Complex Analysis',
+                target: 'opponent',
+                description: 'Opponent IP ko 1 tak kam karne ka 50% chance.',
+                summary: '50% Chance IP=1'
+            }, {
+                name: 'Fibonacci Sequence',
+                icon: '🐚',
+                type: 'Theorem',
+                cost: 3,
+                effect: 'heal_over_time',
+                value: 3,
+                turns: 2,
+                branch: 'Number Theory',
+                target: 'self',
+                description: 'Aapko 2 turns ke liye 3 IP heal karta hai.',
+                summary: 'Heal 3/Turn (2T)'
+            }, {
+                name: 'Matrix Inversion',
+                icon: '🔲',
+                type: 'Theorem',
+                cost: 5,
+                effect: 'double_damage_next_turn',
+                branch: 'Algebra',
+                target: 'self',
+                description: 'Aapka next damage card double damage karega.',
+                summary: 'Next Damage x2'
+            }, {
+                name: 'Natural Number Set',
+                icon: 'ℕ',
+                type: 'Theorem',
+                cost: 5,
+                effect: 'natural_number_set_effect',
+                branch: 'Number Theory',
+                target: 'opponent',
+                description: 'Agar Opponent ka IP irrational hai, toh usko 0 par set karta hai.',
+                summary: 'Irrational IP = 0'
+            }, {
+                name: 'Riemann Hypothesis',
+                icon: '❓',
+                type: 'Theorem',
+                cost: 12,
+                effect: 'ultimate_damage',
+                value: 30,
+                branch: 'Number Theory',
+                target: 'opponent',
+                description: 'Massive 30 damage deta hai, but cost bahut zyada hai.',
+                summary: 'IP -30 (High Cost)'
+            }, {
+                name: 'Shunya Hastak',
+                icon: '✋',
+                type: 'Theorem',
+                cost: 4,
+                effect: 'discard_hand',
+                target: 'opponent',
+                description: 'Opponent ko apna poora hand discard karne par majboor karta hai.',
+                summary: 'Opponent Discard Hand'
+            }, {
+                name: 'Pratibimbit Kshati',
+                icon: '🪞',
+                type: 'Theorem',
+                cost: 6,
+                effect: 'reflect_damage',
+                value: 0.5,
+                turns: 1,
+                target: 'self',
+                description: 'Next turn mein opponent se aane wale damage ka 50% wapas opponent ko deta hai.',
+                summary: 'Reflect 50% Damage (1T)'
+            }, {
+                name: 'Complex Rotation (×i)',
+                icon: '🔄i',
+                type: 'Theorem',
+                cost: 5,
+                effect: 'rotate_to_imaginary',
+                branch: 'Complex Analysis',
+                target: 'opponent',
+                description: 'Opponent ke IP ko imaginary banata hai. Isse normal damage se bachaya ja sakta hai, lekin Square IP jaise card se khatra hai.',
+                summary: 'IP -> i * IP'
+            }, {
+                name: 'Real Projection (Re(z))',
+                icon: 'Re(z)',
+                type: 'Theorem',
+                cost: 3,
+                effect: 'real_projection',
+                branch: 'Complex Analysis',
+                target: 'opponent',
+                description: 'Agar opponent ka IP imaginary hai, toh usse 0 kar deta hai.',
+                summary: 'If i*IP, IP=0'
+            },
+            // Trigonometry Cards
+            {
+                name: 'Sine Wave',
+                icon: '🌊',
+                type: 'Action',
+                cost: 3,
+                effect: 'sine_wave_damage',
+                value: 15, // Max damage
+                target: 'opponent',
+                branch: 'Trigonometry',
+                description: 'Opponent ko (15 * sin(angle)) damage deta hai. 90° par sabse zyada effective.',
+                summary: 'Dmg = 15*sin(θ)'
+            }, {
+                name: 'Cosine Shield',
+                icon: '🛡️',
+                type: 'Action',
+                cost: 3,
+                effect: 'cosine_shield',
+                value: 20, // Max block
+                target: 'self',
+                branch: 'Trigonometry',
+                description: 'Agle attack se (20 * cos(angle)) damage block karta hai. 0° par sabse zyada effective.',
+                summary: 'Block = 20*cos(θ)'
+            }, {
+                name: 'Law of Cosines',
+                icon: '📐',
+                type: 'Theorem',
+                cost: 5,
+                effect: 'deal_damage_based_on_ip_diff',
+                target: 'opponent',
+                branch: 'Trigonometry',
+                description: 'Aapke aur opponent ke IP ke difference ke (50% + 20% * cos(angle)) ke barabar damage deta hai.',
+                summary: 'Dmg by IP diff & angle'
+            }, {
+                name: 'Secant Strike',
+                icon: '⚡',
+                type: 'Theorem',
+                cost: 6,
+                effect: 'secant_strike',
+                value: 10, // Base damage
+                target: 'opponent',
+                branch: 'Trigonometry',
+                description: 'Opponent ko (10 * sec(angle)) damage deta hai. High-risk, high-reward! 90° ke paas bahut powerful.',
+                summary: 'Dmg = 10*sec(θ)'
+            }
+        ];
+
+        // --- Game Setup and Flow ---
+        function initializeDeck() {
+            deck = [...allCards].sort(() => 0.5 - Math.random());
+            discardPile = [];
+            updateDeckDiscardCounts();
+        }
+
+        // Initialize sound effects
+        function initializeSounds() {
+            if (Tone.context.state !== 'running') {
+                Tone.start(); // Ensure audio context is started
+            }
+            damageSound = new Tone.MembraneSynth().toDestination();
+            healSound = new Tone.Synth().toDestination();
+            cardDrawSound = new Tone.PluckSynth().toDestination();
+            cardPlaySound = new Tone.MetalSynth().toDestination();
+            winSound = new Tone.PolySynth(Tone.Synth).toDestination();
+            loseSound = new Tone.NoiseSynth().toDestination();
+        }
+
+        async function playSound(type) {
+            if (Tone.context.state !== 'running') {
+                await Tone.start(); // Ensure audio context is started
+            }
+
+            if (type === 'damage') {
+                damageSound.triggerAttackRelease("C2", "8n");
+            } else if (type === 'heal') {
+                healSound.triggerAttackRelease("G4", "8n");
+            } else if (type === 'cardDraw') {
+                cardDrawSound.triggerAttackRelease("C5", "16n");
+            } else if (type === 'cardPlay') {
+                cardPlaySound.triggerAttackRelease("8n");
+            } else if (type === 'win') {
+                winSound.triggerAttackRelease(["C4", "E4", "G4", "C5"], "1n");
+            } else if (type === 'lose') {
+                loseSound.triggerAttackRelease("4n");
+            }
+        }
+
+        async function drawCard(playerType, num) {
+            return new Promise(resolve => {
+                let drawnCount = 0;
+                const drawInterval = setInterval(() => {
+                    let handRef = players[playerType].hand;
+                    let maxHandSize = (playerType === 'player1' ? MAX_HAND_SIZE : AI_MAX_HAND_SIZE); // AI_MAX_HAND_SIZE is used for player2 regardless of AI or local
+
+                    if (drawnCount >= num || handRef.length >= maxHandSize) {
+                        clearInterval(drawInterval);
+                        renderHand(playerType); // Final render for current player
+                        resolve();
+                        return;
+                    }
+
+                    if (deck.length === 0) {
+                        if (discardPile.length === 0) {
+                            showMessage('Aur cards draw karne ke liye nahi hain!', 8000);
+                            logGameEvent('Deck aur Discard Pile dono khali hain. No more cards to draw.', 'game-event');
+                            clearInterval(drawInterval);
+                            renderHand(playerType);
+                            resolve();
+                            return;
+                        }
+                        showMessage('Discard pile ko deck mein shuffle kiya ja raha hai!', 8000);
+                        logGameEvent('Discard Pile ko shuffle karke naya Deck banaya gaya.', 'game-event');
+                        deck = [...discardPile].sort(() => 0.5 - Math.random());
+                        discardPile = [];
+                        updateDeckDiscardCounts();
+                    }
+
+                    if (deck.length > 0) {
+                        const cardToDraw = deck.shift();
+                        handRef.push(cardToDraw);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${cardToDraw.name}" card draw kiya.`, `${playerType}-action`);
+
+                        if (playerType === 'player1' || (playerType === 'player2' && gameMode === 'vs_local_player')) {
+                            // Always render for human players
+                            renderHand(playerType, true); // Render with animation flag for human player
+                            playSound('cardDraw'); // Play sound for human player drawing
+                        } else {
+                            // AI's hand is not visibly rendered, but update counts
+                        }
+                        updateDeckDiscardCounts();
+                        drawnCount++;
+                    }
+                }, 1000); // Increased draw interval
+            });
+        }
+
+
+        function startGame() {
+            gameMode = document.getElementById('game-mode').value;
+            aiDifficulty = document.getElementById('ai-difficulty').value;
+            isGameOver = false;
+
+            // Stop and dispose existing Tone.js instances if they are running
+            if (playerSynth) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel(); // Clear all scheduled events
+                playerSynth.dispose();
+                playerSynth = null;
+            }
+            initializeSounds(); // Re-initialize sounds for new game
+
+
+            // Start background music
+            Tone.start();
+            playerSynth = new Tone.Synth().toDestination();
+            // Simple arpeggiated chord for heroic feel
+            const notes = ["C4", "E4", "G4", "C5"];
+            let index = 0;
+            Tone.Transport.scheduleRepeat(time => {
+                playerSynth.triggerAttackRelease(notes[index % notes.length], "8n", time);
+                index++;
+            }, "4n");
+            Tone.Transport.start();
+
+            document.getElementById('game-mode-select').style.display = 'none';
+            document.getElementById('ai-difficulty-select').style.display = 'none';
+            document.getElementById('branch-select').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
+
+            // Reset game state for a new game
+            const createPlayerState = () => ({
+                ip: 100.0,
+                tokens: 10,
+                hand: [],
+                blockDamage: 0,
+                damageOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                healOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                doubleDamageNextTurn: false,
+                reflectDamage: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                isIPIrrational: false,
+                isIPImaginary: false,
+                selectedBranch: '',
+                inGracePeriod: false,
+                graceRoundsRemaining: -1,
+                angle: 45
+            });
+            players.player1 = createPlayerState();
+            players.player2 = createPlayerState();
+            currentTurn = 0;
+            currentPlayer = 'player1';
+            playedCardsThisTurn = [];
+            gameHistoryLog = []; // Clear history
+
+            initializeDeck(); // Initialize and shuffle the deck
+
+            // Set player branches
+            players.player1.selectedBranch = document.getElementById('branch-player1').value;
+            if (gameMode === 'vs_ai') {
+                const allBranches = Object.keys(branchEffects);
+                const availableBranches = allBranches.filter(b => b !== players.player1.selectedBranch);
+                players.player2.selectedBranch = availableBranches[Math.floor(Math.random() * availableBranches.length)];
+            } else { // vs_local_player
+                players.player2.selectedBranch = document.getElementById('branch-player2').value;
+            }
+            
+            // Show/hide angle sliders based on branch
+            document.getElementById('player1-angle-slider-container').style.display = players.player1.selectedBranch === 'Trigonometry' ? 'block' : 'none';
+            document.getElementById('player2-angle-slider-container').style.display = players.player2.selectedBranch === 'Trigonometry' ? 'block' : 'none';
+
+
+            // Update player names in UI
+            document.getElementById('player1-name-display').textContent = 'Aapka IP:';
+            document.getElementById('player1-tokens-display').textContent = 'Tokens:';
+            if (gameMode === 'vs_ai') {
+                document.getElementById('player2-name-display').textContent = `AI IP (${aiDifficulty}):`;
+                document.getElementById('player2-tokens-display').textContent = 'AI Tokens:';
+            } else {
+                document.getElementById('player2-name-display').textContent = 'Player 2 IP:';
+                document.getElementById('player2-tokens-display').textContent = 'Player 2 Tokens:';
+            }
+
+            // Apply branch-specific starting effects
+            branchEffects[players.player1.selectedBranch].apply('player1');
+            logGameEvent(`Player 1 ne ${players.player1.selectedBranch} branch chuni. Iske starting effects apply hue.`, 'game-event');
+            branchEffects[players.player2.selectedBranch].apply('player2');
+            logGameEvent(`${gameMode === 'vs_ai' ? 'AI' : 'Player 2'} ne ${players.player2.selectedBranch} branch chuni. Iske starting effects apply hue.`, 'game-event');
+
+            // Initial hand draw for players
+            let player1InitialHandSize = 4;
+            if (branchEffects[players.player1.selectedBranch].initial_hand_size_modifier) {
+                player1InitialHandSize += branchEffects[players.player1.selectedBranch].initial_hand_size_modifier;
+            }
+            player1InitialHandSize = Math.max(1, player1InitialHandSize);
+
+            let player2InitialHandSize = 4;
+            if (branchEffects[players.player2.selectedBranch].initial_hand_size_modifier) {
+                player2InitialHandSize += branchEffects[players.player2.selectedBranch].initial_hand_size_modifier;
+            }
+            player2InitialHandSize = Math.max(1, player2InitialHandSize);
+
+            for (let i = 0; i < player1InitialHandSize; i++) {
+                if (deck.length > 0) players.player1.hand.push(deck.shift());
+            }
+            for (let i = 0; i < player2InitialHandSize; i++) {
+                if (deck.length > 0) players.player2.hand.push(deck.shift());
+            }
+
+            renderHand('player1');
+            renderHand('player2'); // Render player 2's hand (hidden for AI, visible for local)
+            updateStatus();
+            startTurnCycle(); // Start the first turn cycle
+        }
+
+        async function startTurnCycle() {
+            if (isGameOver) return;
+            currentTurn++;
+            logGameEvent(`--- Turn ${currentTurn} Start ---`, 'game-event');
+
+            // Player 1's Full Turn
+            currentPlayer = 'player1';
+            logGameEvent('Aapki baari hai!', 'game-event');
+            await handleFullPlayerTurn('player1');
+            if (isGameOver) return;
+
+            // Player 2's Full Turn (AI or Local)
+            currentPlayer = 'player2';
+            if (gameMode === 'vs_ai') {
+                logGameEvent('AI ki baari hai!', 'game-event');
+                await simulateAITurn(); // AI handles its full turn
+            } else { // vs_local_player
+                logGameEvent('Player 2 ki baari hai!', 'game-event');
+                await handleFullPlayerTurn('player2'); // Player 2 handles their full turn
+            }
+            if (isGameOver) return;
+
+            // After both players have completed their full turns, start the next turn cycle
+            setTimeout(startTurnCycle, 4000); // Increased delay between full turns
+        }
+
+        async function handleFullPlayerTurn(playerType) {
+            // Decrement grace period counter if active
+            if (players[playerType].inGracePeriod) {
+                players[playerType].graceRoundsRemaining--;
+                showMessage(`${playerType === 'player1' ? 'Aapke' : (gameMode === 'vs_ai' ? 'AI ke' : 'Player 2 ke')} grace period ke ${players[playerType].graceRoundsRemaining} turn bache hain!`, 4000);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : 'Player 2'} is in grace period. ${players[playerType].graceRoundsRemaining} turns left.`, 'game-event');
+            }
+            if (checkGameEnd()) return;
+
+            // Phase 1: Draw
+            currentPhase = 'draw';
+            updatePhaseDisplay();
+            playedCardsThisTurn = []; // Reset played cards for the current player's turn
+
+            // Apply per-turn effects (tokens, branch cons)
+            applyPerTurnEffects(playerType);
+            await drawCard(playerType, CARDS_TO_DRAW_PER_TURN);
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Pause after drawing
+
+            // Phase 2: Play
+            currentPhase = 'play';
+            updatePhaseDisplay();
+            if (playerType === 'player1' || (playerType === 'player2' && gameMode === 'vs_local_player')) {
+                document.getElementById('end-play-phase-button').disabled = false;
+                document.getElementById('end-turn-button').disabled = true;
+                document.getElementById('end-play-phase-button').textContent = `${playerType === 'player1' ? 'Aapka' : 'Player 2 ka'} Play Phase End karo`;
+                showMessage(`${playerType === 'player1' ? 'Aapka' : 'Player 2 ka'} Play Phase: Cards play karne ke liye double tap karo.`, 8000);
+
+                // Render hands for local players
+                renderHand('player1');
+                renderHand('player2');
+
+                // Toggle visibility/interactivity of hands
+                document.getElementById('player1-hand').style.pointerEvents = (playerType === 'player1' ? 'auto' : 'none');
+                document.getElementById('player2-hand').style.pointerEvents = (playerType === 'player2' ? 'auto' : 'none');
+                document.getElementById('player1-hand').style.opacity = (playerType === 'player1' ? '1' : '0.5');
+                document.getElementById('player2-hand').style.opacity = (playerType === 'player2' ? '1' : '0.5');
+                
+                // Enable angle slider for current player if they are Trigonometry branch
+                document.getElementById('player1-angle-slider').disabled = (playerType !== 'player1');
+                document.getElementById('player2-angle-slider').disabled = (playerType !== 'player2');
+
+
+                // Wait for player to click 'End Play Phase'
+                await new Promise(resolve => {
+                    const endPlayButton = document.getElementById('end-play-phase-button');
+                    endPlayButton.onclick = async () => {
+                        endPlayButton.disabled = true;
+                        resolve(); // Resolve the promise to continue
+                    };
+                });
+            }
+
+            // Phase 3: Battle
+            currentPhase = 'battle';
+            updatePhaseDisplay();
+            showMessage(`${playerType === 'player1' ? 'Aapke' : (gameMode === 'vs_ai' ? 'AI ke' : 'Player 2 ke')} cards ke effects resolve ho rahe hain!`, 8000);
+            await resolveBattlePhase(playerType);
+            if (checkGameEnd()) return;
+
+            // Apply general attack after cards are resolved
+            await applyGeneralAttack(playerType);
+            if (checkGameEnd()) return;
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Pause after general attack
+
+            // Phase 4: Heal
+            currentPhase = 'heal';
+            updatePhaseDisplay();
+            showMessage(`${playerType === 'player1' ? 'Aapki' : (gameMode === 'vs_ai' ? 'AI ki' : 'Player 2 ki')} Heal Phase: Ongoing effects apply ho rahe hain.`, 8000);
+            await applyHealDamageOverTime(playerType);
+            if (checkGameEnd()) return;
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Pause after heal phase effects
+
+            updateStatus();
+            if (checkGameEnd()) return;
+
+            if (playerType === 'player1' || (playerType === 'player2' && gameMode === 'vs_local_player')) {
+                document.getElementById('end-turn-button').disabled = false;
+                document.getElementById('end-turn-button').textContent = `${playerType === 'player1' ? 'Aapka' : 'Player 2 ka'} Turn End karo`;
+                showMessage('Heal Phase complete. "End Turn" click karke next player ko turn do.', 8000);
+
+                // Wait for player to click 'End Turn'
+                await new Promise(resolve => {
+                    const endTurnButton = document.getElementById('end-turn-button');
+                    endTurnButton.onclick = async () => {
+                        endTurnButton.disabled = true;
+                        resolve(); // Resolve the promise to continue
+                    };
+                });
+            }
+            logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka turn khatam hua.`, 'game-event');
+        }
+
+        function applyPerTurnEffects(playerType) {
+            // Token replenishment
+            players[playerType].tokens = Math.min(10, players[playerType].tokens + 3);
+            logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ke tokens replenish hue.`, 'game-event');
+
+            // Branch-specific per-turn effects
+            const activeBranch = players[playerType].selectedBranch;
+            if (activeBranch === 'Number Theory' && Math.random() < 0.2) {
+                players[playerType].tokens = Math.min(10, players[playerType].tokens + 2);
+                showMessage(`${playerType === 'player1' ? 'Aapki' : (gameMode === 'vs_ai' ? 'AI ki' : 'Player 2 ki')} Number Theory bonus! +2 extra tokens mile.`, 4000);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ko Number Theory bonus se +2 extra tokens mile.`, 'game-event');
+            }
+            if (activeBranch === 'Probability' && Math.random() < 0.15) {
+                players[playerType].ip -= 1;
+                showFloatingText(1, 'damage', `${playerType}-ip`);
+                playSound('damage');
+                showMessage(`${playerType === 'player1' ? 'Aapki' : (gameMode === 'vs_ai' ? 'AI ki' : 'Player 2 ki')} Probability branch con: Ek unstable calculation ki wajah se 1 IP lose kiya!`, 4500);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne Probability con se 1 IP lose kiya.`, 'game-event');
+            }
+        }
+
+        async function resolveBattlePhase(playerType) {
+            // Resolve effects of cards played this turn by current player
+            for (const card of playedCardsThisTurn) {
+                await applyCardEffect(card, playerType); // Apply current player's played card effects
+                if (checkGameEnd()) return;
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Increased delay between effects
+            }
+            playedCardsThisTurn = []; // Clear played cards for this turn
+        }
+
+        async function applyGeneralAttack(playerType) {
+            let baseDamage = 5.0;
+            const opponentPlayerType = (playerType === 'player1' ? 'player2' : 'player1');
+            const opponentPlayerData = players[opponentPlayerType];
+
+            // Apply branch-specific general damage modifier
+            if (players[opponentPlayerType].selectedBranch === 'Algebra') {
+                baseDamage += 2;
+            }
+
+            // Only apply base damage if target is not imaginary
+            if (opponentPlayerData.isIPImaginary) {
+                showMessage(`General attack ka imaginary IP par koi asar nahi hua!`, 4000);
+                logGameEvent(`General attack ka imaginary IP par koi asar nahi hua.`, 'game-event');
+                return; // No damage if imaginary
+            }
+
+            let finalDamage = baseDamage;
+
+            // Apply reflect damage from opponent to current player
+            if (opponentPlayerData.reflectDamage.active) {
+                const reflectedAmount = finalDamage * opponentPlayerData.reflectDamage.value;
+                players[playerType].ip -= reflectedAmount;
+                showFloatingText(reflectedAmount, 'damage', `${playerType}-ip`);
+                playSound('damage');
+                showMessage(`${opponentPlayerType === 'player1' ? 'Aapke' : (gameMode === 'vs_ai' ? 'AI ke' : 'Player 2 ke')} Reflect Damage ne ${playerType === 'player1' ? 'aapko' : (gameMode === 'vs_ai' ? 'AI ko' : 'Player 2 ko')} ${reflectedAmount.toFixed(2)} damage diya!`, 4000);
+                logGameEvent(`${opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} Reflect Damage ne ${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ko ${reflectedAmount.toFixed(2)} damage diya.`, 'game-event');
+                finalDamage -= reflectedAmount; // Reduce damage to target by reflected amount
+                opponentPlayerData.reflectDamage.turns--;
+                if (opponentPlayerData.reflectDamage.turns <= 0) {
+                    opponentPlayerData.reflectDamage.active = false;
+                    logGameEvent(`${opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka Reflect Damage effect end hua.`, 'game-event');
+                }
+            }
+
+
+            // Apply block damage from opponent
+            if (opponentPlayerData.blockDamage > 0) {
+                const actualDamageToTarget = Math.max(0, finalDamage - opponentPlayerData.blockDamage);
+                opponentPlayerData.blockDamage -= finalDamage;
+                opponentPlayerData.ip -= actualDamageToTarget;
+                showFloatingText(actualDamageToTarget, 'damage', `${opponentPlayerType}-ip`);
+                playSound('damage');
+                showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${baseDamage.toFixed(2)} damage kiya. ${baseDamage - actualDamageToTarget.toFixed(2)} damage block hua!`, 4500);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${baseDamage.toFixed(2)} damage diya. ${opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${baseDamage - actualDamageToTarget.toFixed(2)} damage block kiya.`, 'game-event');
+                if (opponentPlayerData.blockDamage <= 0) {
+                    opponentPlayerData.blockDamage = 0;
+                    logGameEvent(`${opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka Block effect end hua.`, 'game-event');
+                }
+            } else {
+                // No block active
+                opponentPlayerData.ip -= finalDamage;
+                showFloatingText(finalDamage, 'damage', `${opponentPlayerType}-ip`);
+                playSound('damage');
+                showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${finalDamage.toFixed(2)} damage diya!`, 4000);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${finalDamage.toFixed(2)} damage diya.`, 'game-event');
+            }
+        }
+
+        async function applyHealDamageOverTime(playerType) {
+            const player = players[playerType];
+
+            // Apply heal over time for the current player
+            if (player.healOverTime.active) {
+                const healAmount = player.healOverTime.value;
+                player.ip += healAmount;
+                player.healOverTime.turns--;
+                showFloatingText(healAmount, 'heal', `${playerType}-ip`);
+                playSound('heal');
+                showMessage(`${playerType === 'player1' ? 'Aapko' : (gameMode === 'vs_ai' ? 'AI ko' : 'Player 2 ko')} ongoing effect se ${healAmount} IP heal hua.`, 4000);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ko ongoing effect se ${healAmount} IP heal hua.`, 'game-event');
+
+                if (player.healOverTime.turns <= 0) {
+                    player.healOverTime.active = false;
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka Heal over time effect end hua.`, 'game-event');
+                }
+            }
+
+            // Apply damage over time for the current player
+            if (player.damageOverTime.active) {
+                const damageAmount = player.damageOverTime.value;
+                if (player.isIPImaginary) {
+                    showMessage(`Damage over time ka imaginary IP par koi asar nahi hua!`, 4000);
+                    logGameEvent(`Damage over time ka imaginary IP par koi asar nahi hua.`, 'game-event');
+                } else {
+                    player.ip -= damageAmount;
+                    showFloatingText(damageAmount, 'damage', `${playerType}-ip`);
+                    playSound('damage');
+                    showMessage(`${playerType === 'player1' ? 'Aapko' : (gameMode === 'vs_ai' ? 'AI ko' : 'Player 2 ko')} ongoing effect se ${damageAmount} IP damage hua.`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ko ongoing effect se ${damageAmount} IP damage hua.`, 'game-event');
+                }
+                player.damageOverTime.turns--;
+                if (player.damageOverTime.turns <= 0) {
+                    player.damageOverTime.active = false;
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka Damage over time effect end hua.`, 'game-event');
+                }
+            }
+
+            // After healing, check if player has recovered from grace period
+            if (player.inGracePeriod && player.ip > 0) {
+                player.inGracePeriod = false;
+                player.graceRoundsRemaining = -1;
+                showMessage(`${playerType === 'player1' ? 'Aapne' : 'Opponent ne'} 0 IP se recover kar liya hai!`, 5000);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : 'Player 2'} has recovered from grace period.`, 'game-event');
+            }
+        }
+
+
+        function renderHand(playerType, animateDraw = false) {
+            const handDiv = document.getElementById(`${playerType}-hand`);
+            const playAreaDiv = document.getElementById(`${playerType}-play-area`);
+
+            // Clear only existing cards, not the text
+            Array.from(handDiv.children).forEach(child => {
+                if (child.classList.contains('card')) {
+                    child.remove();
+                }
+            });
+
+            // Clear play area as cards are moved to discard after battle phase
+            playAreaDiv.innerHTML = '';
+
+            const handToRender = players[playerType].hand;
+            handToRender.forEach((card, index) => {
+                const cardElem = document.createElement('div');
+                cardElem.className = `card ${card.type.toLowerCase()}`; // Apply type class for styling
+                if (animateDraw) {
+                    cardElem.classList.add('drawing');
+                    cardElem.style.animationDelay = `${index * 0.4}s`; // Stagger animation
+                }
+
+                // Calculate actual card cost
+                let displayCost = card.cost;
+                const activeBranch = players[playerType].selectedBranch;
+                if (activeBranch === 'Geometry' && card.type !== 'Action' && card.type !== 'Theorem') {
+                    displayCost = card.cost + 1;
+                }
+                if (activeBranch === 'Complex Analysis' && card.type === 'Theorem' && (card.name === 'Swap IPs' || card.name === 'Invert IP Sign')) {
+                    displayCost += 2;
+                }
+
+                cardElem.innerHTML = `
+                <div class="card-top">
+                    <span class="card-icon">${card.icon}</span>
+                    <span class="card-name">${card.name}</span>
+                </div>
+                <span class="card-cost">Cost: ${displayCost}</span>
+                <div class="card-summary-text">${card.summary}</div>
+                <div class="card-description-text">${card.description}</div>
+            `;
+
+                // Store the card object directly on the element for easier retrieval
+                cardElem.cardData = card;
+
+                // Only current player's hand is interactive
+                if (playerType === currentPlayer && (playerType === 'player1' || gameMode === 'vs_local_player')) {
+                    // Single tap/click to toggle description
+                    cardElem.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        cardElem.classList.toggle('show-description');
+                    });
+
+                    // Double tap/click to play card
+                    cardElem.addEventListener('dblclick', (ev) => {
+                        ev.stopPropagation();
+                        playCard(card, cardElem, playerType);
+                    });
+
+                    // Touch events for double tap on mobile
+                    cardElem.addEventListener('touchend', (ev) => {
+                        const currentTime = new Date().getTime();
+                        const tapLength = currentTime - lastTapTime;
+                        if (tapLength < DOUBLE_TAP_THRESHOLD && tapLength > 0) {
+                            // Double tap detected
+                            playCard(card, cardElem, playerType);
+                            lastTapTime = 0; // Reset for next double tap
+                        } else {
+                            // Single tap, toggle description
+                            cardElem.classList.toggle('show-description');
+                            lastTapTime = currentTime;
+                        }
+                        ev.preventDefault(); // Prevent default touch behavior (like zooming)
+                    });
+                    cardElem.style.pointerEvents = 'auto'; // Enable interactions
+                    cardElem.style.opacity = '1';
+                } else {
+                    // For inactive player's hand (or AI's hand), hide details and disable interaction
+                    cardElem.innerHTML = `<div class="card-back" style="background-color: #333; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 2em; border-radius: 10px;">?</div>`;
+                    cardElem.style.cursor = 'default';
+                    cardElem.style.pointerEvents = 'none'; // Disable interactions
+                    cardElem.style.opacity = '0.5'; // Dim inactive hand
+                }
+
+                handDiv.appendChild(cardElem);
+            });
+        }
+
+        async function playCard(card, cardElem, playerType) {
+            if (currentPhase !== 'play' || currentPlayer !== playerType) {
+                showMessage(`Aap sirf Play Phase mein aur apni baari mein cards play kar sakte ho!`, 8000);
+                return;
+            }
+            if (!card) {
+                showMessage('Card nahi mila.', 8000);
+                return;
+            }
+
+            let actualCost = card.cost;
+            const activeBranch = players[playerType].selectedBranch;
+            if (activeBranch === 'Geometry' && card.type !== 'Action' && card.type !== 'Theorem') {
+                actualCost = card.cost + 1;
+            }
+            if (activeBranch === 'Complex Analysis' && card.type === 'Theorem' && (card.name === 'Swap IPs' || card.name === 'Invert IP Sign')) {
+                actualCost += 2;
+            }
+
+            if (players[playerType].tokens < actualCost) {
+                showMessage(`Tokens kam hain! Is card ki cost ${actualCost} tokens hai.`, 8000);
+                return;
+            }
+            players[playerType].tokens -= actualCost;
+
+            // Remove from hand
+            const indexInHand = players[playerType].hand.indexOf(card);
+            if (indexInHand > -1) {
+                players[playerType].hand.splice(indexInHand, 1);
+            } else {
+                console.error("Card not found in hand during splice:", card.name);
+                showMessage("Card ko hand se remove karne mein dikkat hui.", 8000);
+                return;
+            }
+
+            // Animate card playing
+            if (cardElem) {
+                const playAreaDiv = document.getElementById(`${playerType}-play-area`);
+                // Temporarily move card to play area for animation
+                playAreaDiv.appendChild(cardElem);
+                cardElem.classList.add('playing');
+                cardElem.addEventListener('animationend', () => {
+                    cardElem.remove();
+                    discardPile.push(card); // Add to discard after animation
+                    updateDeckDiscardCounts();
+                }, {
+                    once: true
+                });
+            } else {
+                // For AI, no visual element to animate, just move to discard
+                discardPile.push(card);
+                updateDeckDiscardCounts();
+            }
+
+            playedCardsThisTurn.push(card); // Add to list for Battle Phase resolution
+            showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} "${card.name}" card play kiya!`, 4000);
+            logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${card.name}" card (Cost: ${actualCost}) play kiya.`, `${playerType}-action`);
+
+            playSound('cardPlay');
+            renderHand(playerType); // Re-render hand to reflect removed card
+            updateStatus();
+        }
+
+        // Helper function for Factorial
+        function factorial(n) {
+            if (n < 0 || n % 1 !== 0) return NaN; // Factorial is defined for non-negative integers
+            if (n === 0) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) {
+                result *= i;
+                if (result > Number.MAX_SAFE_INTEGER) { // Prevent overflow for very large numbers
+                    showMessage("Factorial value bahut bada ho gaya!", 4000);
+                    return Infinity; // Indicate overflow
+                }
+            }
+            return result;
+        }
+
+        // Helper function for Gamma Function (Lanczos Approximation)
+        function lanczosGamma(z) {
+            // Coefficients for the Lanczos approximation
+            const p = [
+                676.5203681218851, -1259.1392167224028,
+                771.32342877765313, -176.61502916214059,
+                12.507343278686905, -0.13857109526572012,
+                9.9843695780195716e-6,
+                1.5056327351493116e-7
+            ];
+            const g = 7; // g+0.5 is the point at which the series is truncated
+
+            if (z < 0.5) {
+                // Use reflection formula for negative numbers
+                return Math.PI / (Math.sin(Math.PI * z) * lanczosGamma(1 - z));
+            }
+            z -= 1; // Adjust z for the formula
+            let x = 0.99999999999980993;
+            for (let i = 0; i < p.length; i++) {
+                x += p[i] / (z + i + 1);
+            }
+            const t = z + g + 0.5;
+            return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+        }
+
+        // Helper function for Largest Prime Factor
+        function largestPrimeFactor(n) {
+            n = Math.floor(Math.abs(n)); // Work with positive integer part
+            if (n <= 1) return 1; // By convention, LPF of 0, 1 is 1
+
+            let maxPrime = -1;
+
+            // Divide by 2 until n is odd
+            while (n % 2 === 0) {
+                maxPrime = 2;
+                n /= 2;
+            }
+
+            // n must be odd now, so we can skip even numbers
+            for (let i = 3; i <= Math.sqrt(n); i += 2) {
+                while (n % i === 0) {
+                    maxPrime = i;
+                    n = n / i;
+                }
+            }
+
+            // If n is still greater than 2, then it must be a prime number itself
+            if (n > 2) {
+                maxPrime = n;
+            }
+            return maxPrime;
+        }
+        
+        // Helper function to convert degrees to radians
+        function toRadians(degrees) {
+            return degrees * (Math.PI / 180);
+        }
+
+        // Centralized function to apply card effects
+        async function applyCardEffect(card, playerType) {
+            const currentPlayerData = players[playerType];
+            const opponentPlayerType = (playerType === 'player1' ? 'player2' : 'player1');
+            const opponentPlayerData = players[opponentPlayerType];
+
+            let targetPlayer = card.target === 'opponent' ? opponentPlayerData : currentPlayerData;
+            let targetPlayerId = `${card.target === 'opponent' ? opponentPlayerType : playerType}-ip`;
+            let selfPlayerId = `${playerType}-ip`;
+            let valueToApply = card.value;
+
+            const activeBranch = currentPlayerData.selectedBranch;
+            const opponentBranch = opponentPlayerData.selectedBranch;
+
+            // Apply double damage if active (only for damage-dealing cards targeting opponent)
+            let damageMultiplier = 1;
+            if (currentPlayerData.doubleDamageNextTurn && card.target === 'opponent' &&
+                (card.effect === 'direct_value_change' || card.effect === 'random_damage' || card.effect === 'reduce_by_percentage' ||
+                    card.effect === 'area_of_effect_damage' || card.effect === 'ultimate_damage' || card.effect === 'prime_factor_damage' || card.effect === 'deal_damage_based_on_ip_diff' || card.effect === 'sine_wave_damage' || card.effect === 'secant_strike')) {
+                damageMultiplier = 2;
+                currentPlayerData.doubleDamageNextTurn = false; // Reset after use
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka Double Damage effect use hua.`, 'game-event');
+            }
+
+            // Branch-specific card modifiers
+            if (activeBranch === 'Number Theory' && card.type === 'Number' && Math.random() < 0.1) {
+                showMessage(`${playerType === 'player1' ? 'Aapki' : (gameMode === 'vs_ai' ? 'AI ki' : 'Player 2 ki')} Number Theory ki unpredictable nature! ${playerType === 'player1' ? 'Aapke' : (gameMode === 'vs_ai' ? 'AI ke' : 'Player 2 ke')} ${card.name} ne 0 damage kiya.`, 4500);
+                logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ka "${card.name}" card (Number Theory con) ne 0 effect kiya.`, `${playerType}-action`);
+                updateStatus();
+                return;
+            }
+            if (activeBranch === 'Algebra' && card.type === 'Number' && card.effect === 'direct_value_change') {
+                if (card.target === 'opponent') valueToApply += 1;
+                else if (card.target === 'self' && card.value < 0) valueToApply -= 1; // If it's self-damage, make it more damaging
+            }
+            if (activeBranch === 'Probability' && card.effect === 'random_damage') {
+                valueToApply = {
+                    min: card.value.min,
+                    max: card.value.max + Math.floor((card.value.max - card.value.min) * 0.5)
+                };
+            }
+
+            // Card Effect Logic (Comprehensive)
+            switch (card.effect) {
+                case 'direct_value_change':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP par simple +/- kaam nahi karta!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par koi asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const actualDirectValue = valueToApply * damageMultiplier;
+                    if (card.target === 'opponent') {
+                        targetPlayer.ip -= actualDirectValue;
+                        showFloatingText(actualDirectValue, 'damage', targetPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} opponent ke IP ko ${actualDirectValue.toFixed(2)} se kam kiya!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne opponent ke IP ko ${actualDirectValue.toFixed(2)} se kam kiya.`, `${playerType}-action`);
+                    } else if (card.target === 'self') {
+                        targetPlayer.ip += actualDirectValue;
+                        showFloatingText(actualDirectValue, actualDirectValue > 0 ? 'heal' : 'damage', selfPlayerId);
+                        playSound(actualDirectValue > 0 ? 'heal' : 'damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} apne IP ko ${Math.abs(actualDirectValue).toFixed(2)} se ${actualDirectValue > 0 ? 'badhaya' : 'kam kiya'}!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne apne IP ko ${Math.abs(actualDirectValue).toFixed(2)} se ${actualDirectValue > 0 ? 'badhaya' : 'kam kiya'}.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'multiply_ip':
+                case 'divide_ip':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP par multiplicative effects unpredictable ho sakte hain!`, 4000);
+                        // For simplicity, treat as real for multiplication/division, but keep imaginary status
+                    }
+                    if (card.effect === 'divide_ip' && targetPlayer.ip === 0) {
+                        showMessage('Zero se divide nahi kar sakte!', 3000);
+                        break;
+                    }
+                    let multiplier = valueToApply;
+                    if (opponentBranch === 'Trigonometry') {
+                        multiplier = (card.effect === 'multiply_ip') ? multiplier * 1.25 : multiplier / 1.25;
+                    }
+                    const oldMultiplyDivideIP = targetPlayer.ip;
+                    targetPlayer.ip = (card.effect === 'multiply_ip') ? targetPlayer.ip * multiplier : targetPlayer.ip / multiplier;
+                    showFloatingText(Math.abs(targetPlayer.ip - oldMultiplyDivideIP), targetPlayer.ip < oldMultiplyDivideIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldMultiplyDivideIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko ${card.effect === 'multiply_ip' ? 'multiply' : 'divide'} kiya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko ${card.effect === 'multiply_ip' ? 'multiply' : 'divide'} kiya.`, `${playerType}-action`);
+                    break;
+                case 'square_ip':
+                    // Target is now 'self'
+                    if (targetPlayer.isIPImaginary) {
+                        // (i * x)^2 = i^2 * x^2 = -x^2. Imaginary becomes real and negative.
+                        targetPlayer.ip = -(targetPlayer.ip * targetPlayer.ip);
+                        targetPlayer.isIPImaginary = false;
+                        showMessage(`Imaginary IP ka square kiya, real aur negative ho gaya!`, 4000);
+                        playSound('damage'); // Usually a negative outcome
+                    } else {
+                        const oldSquareIP = targetPlayer.ip;
+                        targetPlayer.ip *= targetPlayer.ip;
+                        showFloatingText(Math.abs(targetPlayer.ip - oldSquareIP), targetPlayer.ip < oldSquareIP ? 'damage' : 'heal', targetPlayerId);
+                        playSound(targetPlayer.ip < oldSquareIP ? 'damage' : 'heal');
+                        showMessage(`Aapne apne IP ka square kiya!`, 4000);
+                    }
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne apne IP ka square kiya.`, `${playerType}-action`);
+                    break;
+                case 'square_root_ip':
+                    if (targetPlayer.isIPImaginary || targetPlayer.ip < 0) {
+                        showMessage('Negative ya Imaginary IP ka square root nahi le sakte!', 3000);
+                        logGameEvent(`Card "${card.name}" ka invalid IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldSqrtIP = targetPlayer.ip;
+                    targetPlayer.ip = Math.sqrt(targetPlayer.ip);
+                    showFloatingText(Math.abs(targetPlayer.ip - oldSqrtIP), targetPlayer.ip < oldSqrtIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldSqrtIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka square root liya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka square root liya.`, `${playerType}-action`);
+                    break;
+                case 'absolute_value_ip':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP ka absolute value complex hai, koi asar nahi hua!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldAbsIP = targetPlayer.ip;
+                    targetPlayer.ip = Math.abs(targetPlayer.ip);
+                    showFloatingText(Math.abs(targetPlayer.ip - oldAbsIP), targetPlayer.ip < oldAbsIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldAbsIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'self' ? 'self' : 'apne'} IP ko absolute value banaya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'self' ? 'self' : 'apne'} IP ko absolute value banaya.`, `${playerType}-action`);
+                    break;
+                case 'invert_sign_ip':
+                    // Theorem card, target 'opponent'
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP ka sign invert kiya, lekin ab bhi imaginary hai!`, 4000);
+                    }
+                    const oldInvertIP = targetPlayer.ip;
+                    targetPlayer.ip = -targetPlayer.ip;
+                    showFloatingText(Math.abs(targetPlayer.ip - oldInvertIP), targetPlayer.ip < oldInvertIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldInvertIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka sign invert kiya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka sign invert kiya.`, `${playerType}-action`);
+                    break;
+                case 'derivative_effect':
+                    // Action card, target 'opponent'
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP ka derivative complex hai, koi asar nahi hua!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldDerivIP = targetPlayer.ip;
+                    targetPlayer.ip = 0; // Derivative of a constant is 0
+                    showFloatingText(Math.abs(targetPlayer.ip - oldDerivIP), 'damage', targetPlayerId);
+                    playSound('damage');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} opponent ke IP ko differentiate kiya (0 ho gaya)!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne opponent ke IP ko differentiate kiya.`, `${playerType}-action`);
+                    break;
+                case 'logarithm_effect':
+                    // Action card, target 'opponent'
+                    if (targetPlayer.isIPImaginary || targetPlayer.ip <= 0) {
+                        showMessage('Logarithm ke liye IP positive real number hona chahiye!', 4000);
+                        logGameEvent(`Card "${card.name}" ka invalid IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldLogIP = targetPlayer.ip;
+                    targetPlayer.ip = Math.log(targetPlayer.ip);
+                    showFloatingText(Math.abs(targetPlayer.ip - oldLogIP), targetPlayer.ip < oldLogIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldLogIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka natural logarithm liya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka natural logarithm liya.`, `${playerType}-action`);
+                    break;
+                case 'reciprocal_ip':
+                    if (targetPlayer.ip === 0) {
+                        showMessage('Zero ka reciprocal nahi le sakte!', 3000);
+                        break;
+                    }
+                    if (targetPlayer.isIPImaginary) {
+                        // 1 / (i*x) = -i/x. Still imaginary, but magnitude changes.
+                        targetPlayer.ip = -1 / targetPlayer.ip;
+                        showMessage(`Imaginary IP ka reciprocal liya!`, 4000);
+                    } else {
+                        const oldRecipIP = targetPlayer.ip;
+                        targetPlayer.ip = 1 / targetPlayer.ip;
+                        showFloatingText(Math.abs(targetPlayer.ip - oldRecipIP), targetPlayer.ip < oldRecipIP ? 'damage' : 'heal', targetPlayerId);
+                        playSound(targetPlayer.ip < oldRecipIP ? 'damage' : 'heal');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka reciprocal liya!`, 4000);
+                    }
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ka reciprocal liya.`, `${playerType}-action`);
+                    break;
+                case 'power_of_zero':
+                    if (targetPlayer.ip === 0) {
+                        showMessage('0^0 undefined hai!', 3000);
+                        break;
+                    }
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP ki power 0 complex hai, koi asar nahi hua!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldPowerZeroIP = targetPlayer.ip;
+                    targetPlayer.ip = 1;
+                    showFloatingText(Math.abs(targetPlayer.ip - oldPowerZeroIP), targetPlayer.ip < oldPowerZeroIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldPowerZeroIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko 1 kar diya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko 1 kar diya.`, `${playerType}-action`);
+                    break;
+                case 'factorial_ip':
+                    // Target is 'self'
+                    if (targetPlayer.isIPImaginary || targetPlayer.ip < 0 || targetPlayer.ip > 12 || targetPlayer.ip % 1 !== 0) {
+                        showMessage(`Factorial sirf 0-12 ke beech ke real integers par kaam karta hai!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka invalid IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldFactorialIP = targetPlayer.ip;
+                    targetPlayer.ip = factorial(Math.floor(targetPlayer.ip));
+                    showFloatingText(Math.abs(targetPlayer.ip - oldFactorialIP), targetPlayer.ip < oldFactorialIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldFactorialIP ? 'damage' : 'heal');
+                    showMessage(`Aapne apne IP ka factorial liya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne apne IP ka factorial liya.`, `${playerType}-action`);
+                    break;
+                case 'gamma_function_ip':
+                    // Target is 'self'
+                    if (targetPlayer.isIPImaginary || targetPlayer.ip <= 0) {
+                        showMessage(`Gamma Function sirf positive real numbers par kaam karta hai!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka invalid IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const oldGammaIP = targetPlayer.ip;
+                    targetPlayer.ip = lanczosGamma(targetPlayer.ip);
+                    showFloatingText(Math.abs(targetPlayer.ip - oldGammaIP), targetPlayer.ip < oldGammaIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldGammaIP ? 'damage' : 'heal');
+                    showMessage(`Aapne apne IP par Gamma function apply kiya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne apne IP par Gamma function apply kiya.`, `${playerType}-action`);
+                    break;
+                case 'divide_by_pi':
+                    if (targetPlayer.ip === 0) {
+                        showMessage('Zero ko Pi se divide nahi kar sakte!', 3000);
+                        break;
+                    }
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP ko Pi se divide kiya, ab bhi imaginary hai!`, 4000);
+                    }
+                    const oldPiIP = targetPlayer.ip;
+                    targetPlayer.ip /= Math.PI;
+                    targetPlayer.isIPIrrational = true;
+                    targetPlayer.isIPImaginary = false; // Pi makes it irrational, not imaginary
+                    showFloatingText(Math.abs(targetPlayer.ip - oldPiIP), targetPlayer.ip < oldPiIP ? 'damage' : 'heal', targetPlayerId);
+                    playSound(targetPlayer.ip < oldPiIP ? 'damage' : 'heal');
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko Pi se divide kiya aur irrational ho gaya!`, 4500);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko Pi se divide kiya aur irrational bana diya.`, `${playerType}-action`);
+                    break;
+                case 'swap_ips':
+                    const oldPlayer1IP = players.player1.ip;
+                    const oldPlayer2IP = players.player2.ip;
+                    const oldPlayer1Irrational = players.player1.isIPIrrational;
+                    const oldPlayer2Irrational = players.player2.isIPIrrational;
+                    const oldPlayer1Imaginary = players.player1.isIPImaginary;
+                    const oldPlayer2Imaginary = players.player2.isIPImaginary;
+
+                    players.player1.ip = oldPlayer2IP;
+                    players.player2.ip = oldPlayer1IP;
+                    players.player1.isIPIrrational = oldPlayer2Irrational;
+                    players.player2.isIPIrrational = oldPlayer1Irrational;
+                    players.player1.isIPImaginary = oldPlayer2Imaginary;
+                    players.player2.isIPImaginary = oldPlayer1Imaginary;
+
+                    // Apply Complex Analysis pro
+                    if (currentPlayerData.selectedBranch === 'Complex Analysis') {
+                        currentPlayerData.ip += 10;
+                        showFloatingText(10, 'heal', selfPlayerId);
+                        playSound('heal');
+                        showMessage(`${playerType === 'player1' ? 'Aapko' : (gameMode === 'vs_ai' ? 'AI ko' : 'Player 2 ko')} Complex Analysis bonus! 10 IP heal hua.`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ko Complex Analysis bonus se 10 IP heal hua.`, 'game-event');
+                    }
+                    showFloatingText(Math.abs(players.player1.ip - oldPlayer1IP), players.player1.ip > oldPlayer1IP ? 'heal' : 'damage', 'player1-ip');
+                    showFloatingText(Math.abs(players.player2.ip - oldPlayer2IP), players.player2.ip > oldPlayer2IP ? 'heal' : 'damage', 'player2-ip');
+                    playSound('heal');
+                    showMessage(`IP swap ho gaya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne IP swap kiya.`, `${playerType}-action`);
+                    break;
+                case 'natural_number_set_effect':
+                    if (targetPlayer.isIPIrrational) {
+                        targetPlayer.ip = 0;
+                        targetPlayer.isIPIrrational = false;
+                        showFloatingText(0, 'damage', targetPlayerId); // Show 0 damage for effect
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} Natural Number Set se ${card.target === 'opponent' ? 'opponent' : 'apna'} irrational IP 0 kar diya!`, 5000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne Natural Number Set se ${card.target === 'opponent' ? 'opponent' : 'apna'} irrational IP 0 kar diya.`, `${playerType}-action`);
+                    } else {
+                        showMessage(`${card.target === 'opponent' ? 'Opponent' : 'Aapka'} IP irrational nahi hai.`, 3000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne Natural Number Set use kiya, lekin target IP irrational nahi tha.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'rotate_to_imaginary':
+                    if (targetPlayer.isIPImaginary) {
+                        // If already imaginary, multiplying by 'i' again makes it real and negative (i*i*x = -x)
+                        targetPlayer.ip = -targetPlayer.ip;
+                        targetPlayer.isIPImaginary = false;
+                        showMessage(`${card.target === 'opponent' ? 'Opponent' : 'Aapka'} IP imaginary se real aur negative ho gaya!`, 4000);
+                        playSound('damage');
+                    } else {
+                        targetPlayer.isIPImaginary = true;
+                        targetPlayer.isIPIrrational = false; // Imaginary overrides irrational
+                        showMessage(`${card.target === 'opponent' ? 'Opponent' : 'Aapka'} IP imaginary ho gaya!`, 4000);
+                        playSound('damage'); // Often a negative effect for opponent
+                    }
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko imaginary banaya.`, `${playerType}-action`);
+                    break;
+                case 'real_projection':
+                    if (targetPlayer.isIPImaginary) {
+                        const oldRealProjIP = targetPlayer.ip;
+                        targetPlayer.ip = 0; // Project imaginary part to 0 (Real part is 0)
+                        targetPlayer.isIPImaginary = false;
+                        showFloatingText(Math.abs(oldRealProjIP), 'damage', targetPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.target === 'opponent' ? 'opponent' : 'apne'} imaginary IP ko 0 kar diya!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${card.target === 'opponent' ? 'opponent' : 'apne'} imaginary IP ko 0 kar diya.`, `${playerType}-action`);
+                    } else {
+                        showMessage(`${card.target === 'opponent' ? 'Opponent' : 'Aapka'} IP imaginary nahi hai.`, 3000);
+                        logGameEvent(`Card "${card.name}" ka non-imaginary IP par asar nahi hua.`, 'game-event');
+                    }
+                    break;
+                case 'prime_factor_damage':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Imaginary IP ka prime factor nahi nikal sakte!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const ipIntPrime = Math.floor(Math.abs(targetPlayer.ip));
+                    const damagePrime = largestPrimeFactor(ipIntPrime) * damageMultiplier;
+                    if (damagePrime > 0) {
+                        targetPlayer.ip -= damagePrime;
+                        showFloatingText(damagePrime, 'damage', targetPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} opponent ko ${damagePrime} damage diya (Largest Prime Factor)!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne opponent ko ${damagePrime} damage diya (Largest Prime Factor).`, `${playerType}-action`);
+                    } else {
+                        showMessage(`IP ka koi prime factor nahi mila, koi damage nahi hua.`, 3000);
+                        logGameEvent(`Card "${card.name}" ne koi damage nahi kiya.`, 'game-event');
+                    }
+                    break;
+                case 'block_damage':
+                    if (card.target === 'self') {
+                        currentPlayerData.blockDamage += valueToApply;
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${valueToApply} damage block kiya!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${valueToApply} damage block kiya.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'draw_card':
+                    await drawCard(playerType, valueToApply);
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${valueToApply} extra card draw kiya!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${valueToApply} extra card draw kiya.`, `${playerType}-action`);
+                    break;
+                case 'random_damage':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Random damage ka imaginary IP par koi asar nahi hua!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const damageRand = Math.floor(Math.random() * (valueToApply.max - valueToApply.min + 1)) + valueToApply.min;
+                    const actualDamageRand = damageRand * damageMultiplier;
+                    if (card.target === 'opponent') {
+                        opponentPlayerData.ip -= actualDamageRand;
+                        showFloatingText(actualDamageRand, 'damage', targetPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} opponent ko random ${actualDamageRand.toFixed(2)} damage diya!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne opponent ko random ${actualDamageRand.toFixed(2)} damage diya.`, `${playerType}-action`);
+                    } else if (card.target === 'self') {
+                        currentPlayerData.ip -= actualDamageRand;
+                        showFloatingText(actualDamageRand, 'damage', selfPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} khud ko random ${actualDamageRand.toFixed(2)} damage diya!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne khud ko random ${actualDamageRand.toFixed(2)} damage diya.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'copy_ip':
+                    currentPlayerData.ip = opponentPlayerData.ip;
+                    currentPlayerData.isIPIrrational = opponentPlayerData.isIPIrrational;
+                    currentPlayerData.isIPImaginary = opponentPlayerData.isIPImaginary;
+                    showFloatingText(0, 'heal', selfPlayerId); // Visual feedback for change
+                    playSound('heal'); // Neutral/positive sound
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} apne IP ko ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ke barabar kiya: ${currentPlayerData.ip.toFixed(2)}!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne apne IP ko ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ke barabar kiya.`, `${playerType}-action`);
+                    break;
+                case 'steal_token':
+                    const stolenAmount = valueToApply;
+                    if (card.target === 'opponent') {
+                        const actualStolen = Math.min(stolenAmount, opponentPlayerData.tokens);
+                        currentPlayerData.tokens += actualStolen;
+                        opponentPlayerData.tokens -= actualStolen;
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} se ${actualStolen} tokens chori kiye!`, 4000);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} se ${actualStolen} tokens chori kiye.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'one_hit_ko_chance':
+                    if (Math.random() < 0.5) {
+                        if (targetPlayer.isIPImaginary) {
+                            showMessage(`Imaginary IP par Euler's Identity ka asar complex hai, koi asar nahi hua!`, 4000);
+                            logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                            break;
+                        }
+                        const oldOneHitIP = targetPlayer.ip;
+                        targetPlayer.ip = 1;
+                        showFloatingText(Math.abs(targetPlayer.ip - oldOneHitIP), 'damage', targetPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.name} activate kiya! ${card.target === 'opponent' ? 'Opponent' : 'Apna'} IP 1 tak reduce ho gaya!`, 4500);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${card.name}" se ${card.target === 'opponent' ? 'opponent' : 'apne'} IP ko 1 kar diya.`, `${playerType}-action`);
+                    } else {
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.name} activate kiya! Lekin is baar koi effect nahi hua.`, 4500);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${card.name}" use kiya, lekin koi effect nahi hua.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'heal_over_time':
+                case 'damage_over_time':
+                    let duration = card.turns;
+                    if (activeBranch === 'Calculus') {
+                        duration += 1;
+                    } // Calculus pro
+                    let effectType = card.effect === 'heal_over_time' ? 'healOverTime' : 'damageOverTime';
+                    let targetObject = card.target === 'self' ? currentPlayerData : opponentPlayerData;
+
+                    targetObject[effectType] = {
+                        active: true,
+                        value: valueToApply,
+                        turns: duration
+                    };
+                    showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.name} activate kiya! Effect ${duration} turns tak chalega.`, 4500);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${card.name}" activate kiya.`, `${playerType}-action`);
+                    break;
+                case 'double_damage_next_turn':
+                    if (card.target === 'self') {
+                        currentPlayerData.doubleDamageNextTurn = true;
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.name} activate kiya! ${playerType === 'player1' ? 'Aapka' : (gameMode === 'vs_ai' ? 'AI ka' : 'Player 2 ka')} next damage card double damage karega.`, 4500);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${card.name}" activate kiya. Next damage double hoga.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'ultimate_damage':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Ultimate damage ka imaginary IP par koi asar nahi hua!`, 4000);
+                        logGameEvent(`Card "${card.name}" ka imaginary IP par asar nahi hua.`, 'game-event');
+                        break;
+                    }
+                    const actualUltimateValue = valueToApply * damageMultiplier;
+                    if (card.target === 'opponent') {
+                        opponentPlayerData.ip -= actualUltimateValue;
+                        showFloatingText(actualUltimateValue, 'damage', targetPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} opponent ko massive ${actualUltimateValue} ultimate damage diya!`, 4500);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne opponent ko massive ${actualUltimateValue} ultimate damage diya.`, `${playerType}-action`);
+                    } else if (card.target === 'self') {
+                        currentPlayerData.ip -= actualUltimateValue;
+                        showFloatingText(actualUltimateValue, 'damage', selfPlayerId);
+                        playSound('damage');
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} khud ko massive ${actualUltimateValue} ultimate damage diya!`, 4500);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne khud ko massive ${actualUltimateValue} ultimate damage diya.`, `${playerType}-action`);
+                    }
+                    break;
+                case 'discard_hand':
+                    let targetHand, targetPlayerName, targetPlayerObj;
+                    if (card.target === 'opponent') {
+                        targetHand = opponentPlayerData.hand;
+                        targetPlayerName = (opponentPlayerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2'));
+                        targetPlayerObj = opponentPlayerData;
+                    } else if (card.target === 'self') {
+                        targetHand = currentPlayerData.hand;
+                        targetPlayerName = (playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2'));
+                        targetPlayerObj = currentPlayerData;
+                    }
+                    const discardedCount = targetHand.length;
+                    discardPile.push(...targetHand);
+                    targetHand.length = 0; // Clear hand
+                    updateDeckDiscardCounts();
+                    showMessage(`${targetPlayerName} ne apne ${discardedCount} cards discard kiye!`, 4000);
+                    logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne ${targetPlayerName} ke ${discardedCount} cards discard karwaye.`, `${playerType}-action`);
+
+                    if (targetPlayerName === 'Player 1') renderHand('player1');
+                    else if (targetPlayerName === 'Player 2' && gameMode === 'vs_local_player') renderHand('player2');
+                    break;
+                case 'reflect_damage':
+                    if (card.target === 'self') {
+                        currentPlayerData.reflectDamage = {
+                            active: true,
+                            value: valueToApply,
+                            turns: card.turns
+                        };
+                        showMessage(`${playerType === 'player1' ? 'Aapne' : (gameMode === 'vs_ai' ? 'AI ne' : 'Player 2 ne')} ${card.name} activate kiya! Next turn mein damage reflect hoga.`, 4500);
+                        logGameEvent(`${playerType === 'player1' ? 'Player 1' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2')} ne "${card.name}" activate kiya. Damage reflect hoga.`, `${playerType}-action`);
+                    }
+                    break;
+                 case 'sine_wave_damage':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Damage ka imaginary IP par koi asar nahi hua!`, 4000);
+                        break;
+                    }
+                    const sineDamage = (valueToApply * Math.sin(toRadians(currentPlayerData.angle))) * damageMultiplier;
+                    targetPlayer.ip -= sineDamage;
+                    showFloatingText(sineDamage, 'damage', targetPlayerId);
+                    playSound('damage');
+                    showMessage(`Sine Wave ne ${sineDamage.toFixed(2)} damage diya!`, 4000);
+                    logGameEvent(`Sine Wave ne ${sineDamage.toFixed(2)} damage diya at angle ${currentPlayerData.angle}°.`, `${playerType}-action`);
+                    break;
+                case 'cosine_shield':
+                    const blockAmount = valueToApply * Math.cos(toRadians(currentPlayerData.angle));
+                    currentPlayerData.blockDamage += blockAmount;
+                    showMessage(`Cosine Shield ne ${blockAmount.toFixed(2)} damage block kiya!`, 4000);
+                    logGameEvent(`Cosine Shield ne ${blockAmount.toFixed(2)} damage block kiya at angle ${currentPlayerData.angle}°.`, `${playerType}-action`);
+                    break;
+                case 'deal_damage_based_on_ip_diff':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Damage ka imaginary IP par koi asar nahi hua!`, 4000);
+                        break;
+                    }
+                    const ipDifference = Math.abs(currentPlayerData.ip - opponentPlayerData.ip);
+                    const damageFromDiff = (ipDifference * (0.5 + 0.2 * Math.cos(toRadians(currentPlayerData.angle)))) * damageMultiplier;
+                    targetPlayer.ip -= damageFromDiff;
+                    showFloatingText(damageFromDiff, 'damage', targetPlayerId);
+                    playSound('damage');
+                    showMessage(`Law of Cosines ne IP difference se ${damageFromDiff.toFixed(2)} damage diya!`, 4000);
+                    logGameEvent(`Law of Cosines ne ${damageFromDiff.toFixed(2)} damage diya.`, `${playerType}-action`);
+                    break;
+                case 'secant_strike':
+                    if (targetPlayer.isIPImaginary) {
+                        showMessage(`Damage ka imaginary IP par koi asar nahi hua!`, 4000);
+                        break;
+                    }
+                    const cosAngle = Math.cos(toRadians(currentPlayerData.angle));
+                    if (Math.abs(cosAngle) < 0.001) { // Avoid division by zero
+                         showMessage(`Secant Strike ka angle 90° ke bahut paas hai, effect fail hua!`, 4000);
+                         break;
+                    }
+                    const secantDamage = (valueToApply / cosAngle) * damageMultiplier;
+                    targetPlayer.ip -= secantDamage;
+                    showFloatingText(secantDamage, 'damage', targetPlayerId);
+                    playSound('damage');
+                    showMessage(`Secant Strike ne ${secantDamage.toFixed(2)} damage diya!`, 4000);
+                    logGameEvent(`Secant Strike ne ${secantDamage.toFixed(2)} damage diya at angle ${currentPlayerData.angle}°.`, `${playerType}-action`);
+                    break;
+                default:
+                    console.warn(`Unhandled card effect: ${card.effect}`);
+            }
+            updateStatus();
+        }
+
+        async function simulateAITurn() {
+            const playerType = 'player2';
+            logGameEvent('AI apna turn khel raha hai...', 'game-event');
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Short pause for realism
+
+            // Decrement grace period counter if active
+            if (players[playerType].inGracePeriod) {
+                players[playerType].graceRoundsRemaining--;
+                showMessage(`AI ke grace period ke ${players[playerType].graceRoundsRemaining} turn bache hain!`, 4000);
+                logGameEvent(`AI is in grace period. ${players[playerType].graceRoundsRemaining} turns left.`, 'game-event');
+            }
+            if (checkGameEnd()) return;
+
+            // Phase 1: Draw
+            currentPhase = 'draw';
+            updatePhaseDisplay();
+            playedCardsThisTurn = []; // Reset played cards for the AI's turn
+            applyPerTurnEffects(playerType);
+            await drawCard(playerType, CARDS_TO_DRAW_PER_TURN);
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Pause after drawing
+
+            // Phase 2: Play
+            currentPhase = 'play';
+            updatePhaseDisplay();
+            showMessage('AI apne cards play kar raha hai...', 3000);
+
+            // Determine AI logic based on difficulty
+            let aiPlayLogic;
+            switch (aiDifficulty) {
+                case 'easy':
+                    aiPlayLogic = getEasyAIPlay;
+                    break;
+                case 'hard':
+                    aiPlayLogic = getHardAIPlay;
+                    break;
+                case 'medium':
+                default:
+                    aiPlayLogic = getMediumAIPlay;
+                    break;
+            }
+            
+            // AI sets its angle if it's a Trigonometry player
+            if (players.player2.selectedBranch === 'Trigonometry') {
+                setAIAngle();
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Pause for AI to "think" about angle
+            }
+
+            await aiPlayLogic(); // AI makes its plays
+            logGameEvent('AI ne apne cards play kar liye.', 'game-event');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Pause to see AI plays
+
+            // Phase 3: Battle
+            currentPhase = 'battle';
+            updatePhaseDisplay();
+            showMessage('AI ke cards ke effects resolve ho rahe hain!', 4000);
+            await resolveBattlePhase(playerType);
+            if (checkGameEnd()) return;
+
+            // Apply general attack after cards are resolved
+            await applyGeneralAttack(playerType);
+            if (checkGameEnd()) return;
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Pause after general attack
+
+            // Phase 4: Heal
+            currentPhase = 'heal';
+            updatePhaseDisplay();
+            showMessage('AI ki Heal Phase: Ongoing effects apply ho rahe hain.', 4000);
+            await applyHealDamageOverTime(playerType);
+            if (checkGameEnd()) return;
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Pause after heal phase effects
+
+            updateStatus();
+            if (checkGameEnd()) return;
+            logGameEvent('AI ka turn khatam hua.', 'game-event');
+        }
+        
+        function setAIAngle() {
+            // AI determines the best angle based on its hand
+            let bestAngle = 45; // Default
+            let maxScore = -Infinity;
+
+            const testAngles = [0, 30, 45, 60, 85, 90]; // Test key angles
+
+            for (const angle of testAngles) {
+                let currentScore = 0;
+                for (const card of players.player2.hand) {
+                    if (card.branch === 'Trigonometry') {
+                        switch (card.effect) {
+                            case 'sine_wave_damage':
+                                currentScore += card.value * Math.sin(toRadians(angle));
+                                break;
+                            case 'cosine_shield':
+                                // Value shield more if low on health
+                                const healthMultiplier = (players.player2.ip < 50) ? 1.5 : 1;
+                                currentScore += card.value * Math.cos(toRadians(angle)) * healthMultiplier;
+                                break;
+                            case 'secant_strike':
+                                const cosAngle = Math.cos(toRadians(angle));
+                                if (Math.abs(cosAngle) > 0.01) { // Avoid near-infinite
+                                    currentScore += card.value / cosAngle;
+                                }
+                                break;
+                        }
+                    }
+                }
+                if (currentScore > maxScore) {
+                    maxScore = currentScore;
+                    bestAngle = angle;
+                }
+            }
+            players.player2.angle = bestAngle;
+            document.getElementById('player2-angle-slider').value = bestAngle;
+            document.getElementById('player2-angle-value').textContent = bestAngle;
+            showMessage(`AI ne apna angle ${bestAngle}° par set kiya.`, 3000);
+            logGameEvent(`AI ne apna angle ${bestAngle}° par set kiya.`, 'player2-action');
+        }
+
+
+        async function getEasyAIPlay() {
+            // Easy AI: Plays the first card it can afford, without any strategy.
+            const aiHand = [...players.player2.hand];
+            for (const card of aiHand) {
+                let actualCost = card.cost;
+                if (players.player2.selectedBranch === 'Geometry' && card.type !== 'Action' && card.type !== 'Theorem') {
+                    actualCost += 1;
+                }
+                if (players.player2.selectedBranch === 'Complex Analysis' && card.type === 'Theorem' && (card.name === 'Swap IPs' || card.name === 'Invert IP Sign')) {
+                    actualCost += 2;
+                }
+                if (players.player2.tokens >= actualCost) {
+                    await playCard(card, null, 'player2');
+                    await new Promise(resolve => setTimeout(resolve, 1500)); // Pause between plays
+                    if (isGameOver) return;
+                }
+            }
+        }
+
+        async function getMediumAIPlay() {
+            // Medium AI: The original scoring logic.
+            const scoredCards = scoreCardsForAI();
+            for (const item of scoredCards) {
+                const card = item.card;
+                let actualCost = card.cost; // Recalculate cost for playing
+                if (players.player2.selectedBranch === 'Geometry' && card.type !== 'Action' && card.type !== 'Theorem') actualCost += 1;
+                if (players.player2.selectedBranch === 'Complex Analysis' && card.type === 'Theorem' && (card.name === 'Swap IPs' || card.name === 'Invert IP Sign')) actualCost += 2;
+
+                if (players.player2.tokens >= actualCost) {
+                    await playCard(card, null, 'player2');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    if (isGameOver) return;
+                }
+            }
+        }
+
+        async function getHardAIPlay() {
+            // Hard AI: Uses a more advanced scoring logic and might play multiple cards.
+            while (true) {
+                const scoredCards = scoreCardsForAI(true); // Use hard mode scoring
+                if (scoredCards.length === 0 || scoredCards[0].score < 10) { // Stop if no good plays left
+                    break;
+                }
+                const bestCardItem = scoredCards[0];
+                const card = bestCardItem.card;
+                let actualCost = card.cost; // Recalculate cost for playing
+                if (players.player2.selectedBranch === 'Geometry' && card.type !== 'Action' && card.type !== 'Theorem') actualCost += 1;
+                if (players.player2.selectedBranch === 'Complex Analysis' && card.type === 'Theorem' && (card.name === 'Swap IPs' || card.name === 'Invert IP Sign')) actualCost += 2;
+
+                if (players.player2.tokens >= actualCost) {
+                    await playCard(card, null, 'player2');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    if (isGameOver) return;
+                } else {
+                    break; // Can't afford the best move
+                }
+            }
+        }
+
+        function scoreCardsForAI(isHard = false) {
+            const calculateEffectiveValue = (card, playerType) => {
+                let value = 0;
+                let isDamage = false,
+                    isHeal = false;
+                const angle = players[playerType].angle;
+
+                if (card.effect === 'direct_value_change') {
+                    value = card.value;
+                    if (card.target === 'opponent') isDamage = true;
+                    else isHeal = true;
+                } else if (card.effect === 'random_damage') {
+                    value = (card.value.min + card.value.max) / 2;
+                    isDamage = true;
+                } else if (card.effect === 'ultimate_damage') {
+                    value = card.value;
+                    isDamage = true;
+                } else if (card.effect === 'heal_over_time' && card.target === 'self') {
+                    value = card.value * (card.turns + (players[playerType].selectedBranch === 'Calculus' ? 1 : 0));
+                    isHeal = true;
+                } else if (card.effect === 'damage_over_time' && card.target === 'opponent') {
+                    value = card.value * (card.turns + (players[playerType].selectedBranch === 'Calculus' ? 1 : 0));
+                    isDamage = true;
+                } else if (card.effect === 'natural_number_set_effect' && players.player1.isIPIrrational) {
+                    value = players.player1.ip;
+                    isDamage = true;
+                } else if (card.effect === 'swap_ips') {
+                    if (players.player2.ip < players.player1.ip) {
+                        value = players.player1.ip - players.player2.ip;
+                        isHeal = true;
+                    } else {
+                        value = players.player2.ip - players.player1.ip;
+                        isDamage = true;
+                    }
+                } else if (card.effect === 'invert_sign_ip' && card.target === 'opponent') {
+                    value = players.player1.ip * 2;
+                    isDamage = true;
+                } else if (card.effect === 'rotate_to_imaginary' && card.target === 'opponent' && !players.player1.isIPImaginary) {
+                    value = 50;
+                    isDamage = true;
+                } else if (card.effect === 'real_projection' && card.target === 'opponent' && players.player1.isIPImaginary) {
+                    value = players.player1.ip;
+                    isDamage = true;
+                } else if (card.effect === 'prime_factor_damage') {
+                    value = largestPrimeFactor(players.player1.ip);
+                    isDamage = true;
+                } else if (card.effect === 'deal_damage_based_on_ip_diff') {
+                    value = Math.abs(players.player1.ip - players.player2.ip) * (0.5 + 0.2 * Math.cos(toRadians(angle)));
+                    isDamage = true;
+                } else if (card.effect === 'sine_wave_damage') {
+                    value = card.value * Math.sin(toRadians(angle));
+                    isDamage = true;
+                } else if (card.effect === 'cosine_shield') {
+                    value = card.value * Math.cos(toRadians(angle));
+                    isHeal = true; // Scored as a heal/buff
+                } else if (card.effect === 'secant_strike') {
+                    const cosAngle = Math.cos(toRadians(angle));
+                    if (Math.abs(cosAngle) > 0.01) {
+                        value = card.value / cosAngle;
+                    }
+                    isDamage = true;
+                }
+
+
+                if (isDamage && players[playerType].doubleDamageNextTurn) {
+                    value *= 2;
+                }
+                return {
+                    value,
+                    isDamage,
+                    isHeal
+                };
+            };
+
+            const scoredCards = players.player2.hand.map(card => {
+                let score = 0;
+                let actualCost = card.cost;
+                if (players.player2.selectedBranch === 'Geometry' && card.type !== 'Action' && card.type !== 'Theorem') actualCost += 1;
+                if (players.player2.selectedBranch === 'Complex Analysis' && card.type === 'Theorem' && (card.name === 'Swap IPs' || card.name === 'Invert IP Sign')) actualCost += 2;
+
+                if (players.player2.tokens < actualCost) return {
+                    card,
+                    score: -Infinity
+                };
+                const {
+                    value: effectiveValue,
+                    isDamage,
+                    isHeal
+                } = calculateEffectiveValue(card, 'player2');
+
+                // --- Scoring Logic ---
+                // 1. Lethal / Game-Winning Moves
+                if (isDamage && (players.player1.ip - effectiveValue <= 0) && !players.player1.inGracePeriod) score += 1000;
+                if (card.effect === 'natural_number_set_effect' && players.player1.isIPIrrational) score += 900;
+
+                // 2. Self-Preservation
+                let healthUrgency = 0;
+                if (players.player2.ip <= 25 || players.player2.inGracePeriod) healthUrgency = 5; // Critical
+                else if (players.player2.ip <= 50) healthUrgency = 2; // Medium
+
+                if (isHeal) score += effectiveValue * healthUrgency;
+                if (card.effect === 'block_damage' || card.effect === 'cosine_shield') score += effectiveValue * (healthUrgency > 0 ? 4 : 1);
+                if (card.effect === 'reflect_damage') score += 20 * healthUrgency;
+                if (card.effect === 'swap_ips' && isHeal) score += effectiveValue * healthUrgency;
+
+                // 3. Strategic Damage & Disruption
+                if (isDamage) score += effectiveValue * 1.5;
+                if (card.effect === 'discard_hand') score += players.player1.hand.length * 20;
+                if (card.effect === 'steal_token' && players.player1.tokens > 3) score += card.value * 25;
+
+                // 4. Hard-mode specific logic
+                if (isHard) {
+                    // Combo potential: Prioritize setting up double damage
+                    const hasBigDamageCard = players.player2.hand.some(c => c.effect === 'ultimate_damage' || c.effect === 'prime_factor_damage' || c.effect === 'secant_strike');
+                    if (card.effect === 'double_damage_next_turn' && hasBigDamageCard) score += 150;
+                    else if (card.effect === 'double_damage_next_turn') score += 60;
+                    // Counter-play: High value for countering opponent's state
+                    if (card.effect === 'real_projection' && players.player1.isIPImaginary) score += 200;
+                    if (card.effect === 'natural_number_set_effect' && players.player1.isIPIrrational) score += 300; // already high but re-emphasize
+
+                    // Avoid bad plays
+                    if (card.effect === 'swap_ips' && players.player2.ip > players.player1.ip + 30) score -= 200; // Avoid swapping when far ahead
+                } else {
+                    if (card.effect === 'double_damage_next_turn') score += 50;
+                }
+
+                // 5. General Utility
+                if (card.effect === 'draw_card') score += 20;
+
+                score -= actualCost * 2; // Penalize cost more heavily to encourage efficiency
+
+                return {
+                    card,
+                    score
+                };
+            });
+
+            return scoredCards.filter(item => item.score > -Infinity).sort((a, b) => b.score - a.score);
+        }
+
+        function updateStatus() {
+            document.getElementById('player1-ip').textContent = players.player1.ip.toFixed(2);
+            document.getElementById('player2-ip').textContent = players.player2.ip.toFixed(2);
+            document.getElementById('player1-tokens').textContent = players.player1.tokens;
+            document.getElementById('player2-tokens').textContent = players.player2.tokens;
+
+            // Update IP bars
+            const player1IPFill = document.getElementById('player1-ip-fill');
+            const player2IPFill = document.getElementById('player2-ip-fill');
+            const player1IrrationalIndicator = document.getElementById('player1-irrational-indicator');
+            const player2IrrationalIndicator = document.getElementById('player2-irrational-indicator');
+            const player1ImaginaryIndicator = document.getElementById('player1-imaginary-indicator');
+            const player2ImaginaryIndicator = document.getElementById('player2-imaginary-indicator');
+
+            let player1Percentage = (players.player1.ip / 100) * 100;
+            let player2Percentage = (players.player2.ip / 100) * 100;
+
+            player1IPFill.style.width = `${Math.max(0, player1Percentage)}%`;
+            player2IPFill.style.width = `${Math.max(0, player2Percentage)}%`;
+
+            // Color change for IP bars
+            player1IPFill.classList.remove('low', 'medium');
+            if (players.player1.ip <= 20) player1IPFill.classList.add('low');
+            else if (players.player1.ip <= 50) player1IPFill.classList.add('medium');
+
+            player2IPFill.classList.remove('low', 'medium');
+            if (players.player2.ip <= 20) player2IPFill.classList.add('low');
+            else if (players.player2.ip <= 50) player2IPFill.classList.add('medium');
+
+            // Show/hide irrational indicator
+            player1IrrationalIndicator.style.display = players.player1.isIPIrrational ? 'inline' : 'none';
+            player2IrrationalIndicator.style.display = players.player2.isIPIrrational ? 'inline' : 'none';
+
+            // Show/hide imaginary indicator
+            player1ImaginaryIndicator.style.display = players.player1.isIPImaginary ? 'inline' : 'none';
+            player2ImaginaryIndicator.style.display = players.player2.isIPImaginary ? 'inline' : 'none';
+
+            // Handle IP reaching 0 or less (Grace Period)
+            if (players.player1.ip <= 0 && !players.player1.inGracePeriod) {
+                players.player1.inGracePeriod = true;
+                players.player1.graceRoundsRemaining = 4; // 2 full rounds
+                showMessage('Aapka IP 0 ho gaya! Aap ab 2-round grace period mein hain. Heal karo!', 8000);
+                logGameEvent('Player 1 entered grace period.', 'game-event');
+            }
+            if (players.player2.ip <= 0 && !players.player2.inGracePeriod) {
+                players.player2.inGracePeriod = true;
+                players.player2.graceRoundsRemaining = 4; // 2 full rounds
+                showMessage(`${gameMode === 'vs_ai' ? 'AI' : 'Player 2'} ka IP 0 ho gaya! Woh ab 2-round grace period mein hain.`, 8000);
+                logGameEvent('Player 2 entered grace period.', 'game-event');
+            }
+
+            // Add pulse animation class to IP displays
+            document.getElementById('player1-ip').classList.add('pulse');
+            document.getElementById('player2-ip').classList.add('pulse');
+            setTimeout(() => {
+                document.getElementById('player1-ip').classList.remove('pulse');
+                document.getElementById('player2-ip').classList.remove('pulse');
+            }, 1200); // Match animation duration
+        }
+
+        function updatePhaseDisplay() {
+            const phaseDisplay = document.getElementById('current-phase-display');
+            let phaseText = '';
+            let playerText = currentPlayer === 'player1' ? 'Aapki' : (gameMode === 'vs_ai' ? 'AI ki' : 'Player 2 ki');
+            switch (currentPhase) {
+                case 'draw':
+                    phaseText = `${playerText} Draw Phase (Cards draw ho rahe hain...)`;
+                    break;
+                case 'play':
+                    phaseText = `${playerText} Play Phase (Cards play karne ke liye double tap karo)`;
+                    break;
+                case 'battle':
+                    phaseText = `${playerText} Battle Phase (Effects resolve ho rahe hain)`;
+                    break;
+                case 'heal':
+                    phaseText = `${playerText} Heal Phase (Ongoing effects apply ho rahe hain)`;
+                    break;
+            }
+            phaseDisplay.textContent = `Current Phase: ${phaseText}`;
+        }
+
+
+        function updateDeckDiscardCounts() {
+            document.getElementById('deck-count').textContent = deck.length;
+            document.getElementById('discard-count').textContent = discardPile.length;
+            document.getElementById('deck-pile').classList.toggle('empty', deck.length === 0);
+            document.getElementById('discard-pile').classList.toggle('empty', discardPile.length === 0);
+        }
+
+        function checkGameEnd() {
+            if (isGameOver) return true;
+
+            let winner = null;
+            let loser = null;
+
+            if (players.player1.inGracePeriod && players.player1.graceRoundsRemaining <= 0) {
+                if (players.player1.ip <= 0) {
+                    winner = 'player2';
+                    loser = 'player1';
+                }
+            }
+            if (players.player2.inGracePeriod && players.player2.graceRoundsRemaining <= 0) {
+                if (players.player2.ip <= 0) {
+                    // If player 1 also lost on the same turn, the one with higher IP wins
+                    if (winner === 'player2' && players.player2.ip > players.player1.ip) {
+                        winner = 'player2';
+                        loser = 'player1';
+                    } else {
+                        winner = 'player1';
+                        loser = 'player2';
+                    }
+                }
+            }
+
+
+            if (winner) {
+                isGameOver = true;
+                const winnerName = winner === 'player1' ? 'Aap' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2');
+                const loserName = loser === 'player1' ? 'Aap' : (gameMode === 'vs_ai' ? 'AI' : 'Player 2');
+                const message = `${winnerName} jeet gaye! ${loserName} grace period mein recover nahi kar paaye.`;
+                showMessage(message, 10000);
+                logGameEvent(`GAME OVER: ${winnerName} won.`, 'game-event');
+                playSound(winner === 'player1' ? 'win' : 'lose');
+                setTimeout(resetGame, 6000);
+                return true;
+            }
+            return false;
+        }
+
+        function resetGame() {
+            // Reset all game state variables
+            const createPlayerState = () => ({
+                ip: 100.0,
+                tokens: 10,
+                hand: [],
+                blockDamage: 0,
+                damageOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                healOverTime: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                doubleDamageNextTurn: false,
+                reflectDamage: {
+                    active: false,
+                    value: 0,
+                    turns: 0
+                },
+                isIPIrrational: false,
+                isIPImaginary: false,
+                selectedBranch: '',
+                inGracePeriod: false,
+                graceRoundsRemaining: -1,
+                angle: 45
+            });
+            players.player1 = createPlayerState();
+            players.player2 = createPlayerState();
+            isGameOver = false;
+            currentTurn = 0;
+            currentPlayer = 'player1';
+            deck = [];
+            discardPile = [];
+            playedCardsThisTurn = [];
+            chatHistory = [];
+            gameHistoryLog = [];
+
+            // Stop background music and dispose Tone.js instances
+            if (playerSynth) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel(); // Clear all scheduled events
+                playerSynth.dispose();
+                playerSynth = null;
+            }
+            // Dispose other sound synths if they were initialized
+            if (damageSound) damageSound.dispose();
+            if (healSound) healSound.dispose();
+            if (cardDrawSound) cardDrawSound.dispose();
+            if (cardPlaySound) cardPlaySound.dispose();
+            if (winSound) winSound.dispose();
+            if (loseSound) loseSound.dispose();
+
+            // Reset UI visibility
+            document.getElementById('game-mode-select').style.display = 'flex';
+            document.getElementById('branch-select').style.display = 'flex';
+            document.getElementById('game-ui').style.display = 'none';
+            document.getElementById('branch-effect-display-player1').style.display = 'none';
+            document.getElementById('branch-effect-display-player2').style.display = 'none';
+            document.getElementById('player1-angle-slider-container').style.display = 'none';
+            document.getElementById('player2-angle-slider-container').style.display = 'none';
+
+
+            // Reset hand/play area displays to initial text
+            document.getElementById('player1-hand').innerHTML = 'Aapka Hand (Card description ke liye single tap, play karne ke liye double tap)';
+            document.getElementById('player1-play-area').innerHTML = 'Aapka Play Area (Played cards yahan dikhenge)';
+            document.getElementById('player2-hand').innerHTML = 'Player 2\'s Hand'; // Default text for player 2
+            document.getElementById('player2-play-area').innerHTML = 'Player 2\'s Play Area';
+
+            // Reset button texts
+            document.getElementById('end-play-phase-button').textContent = 'End Play Phase';
+            document.getElementById('end-turn-button').textContent = 'End Turn';
+
+
+            // Update UI with reset values
+            updateStatus();
+            updateDeckDiscardCounts();
+            displayBranchEffects('player1'); // Re-display default branch info for player 1
+            displayBranchEffects('player2'); // Re-display default branch info for player 2
+            toggleSetupVisibility(); // Ensure correct visibility on reset
+        }
+
+        // Help Modal Functions
+        function displayBranchEffects(playerNum) {
+            const branch = document.getElementById(`branch-${playerNum}`).value;
+            const effects = branchEffects[branch];
+            const displayDiv = document.getElementById(`branch-effect-display-${playerNum}`);
+            if (effects) {
+                displayDiv.innerHTML = `
+                <h4>${branch} Branch Effects (${playerNum === 'player1' ? 'Aapka' : 'Player 2 ka'}):</h4>
+                <p><strong>Pros:</strong> ${effects.pros}</p>
+                <p><strong>Cons:</strong> ${effects.cons}</p>
+            `;
+                displayDiv.style.display = 'block';
+            } else {
+                displayDiv.style.display = 'none';
+            }
+        }
+
+        function openHelpModal() {
+            const modal = document.getElementById('help-modal');
+            modal.classList.add('show');
+            populateHelpModal();
+        }
+
+        function closeHelpModal() {
+            const modal = document.getElementById('help-modal');
+            modal.classList.remove('show');
+        }
+
+        function populateHelpModal() {
+            // Populate Branch Effects
+            const modalBranchList = document.getElementById('modal-branch-effects-list');
+            modalBranchList.innerHTML = '';
+            for (const branch in branchEffects) {
+                const effects = branchEffects[branch];
+                const branchDiv = document.createElement('div');
+                branchDiv.className = 'branch-info';
+                branchDiv.innerHTML = `
+                <h4>${branch}:</h4>
+                <p><strong>Pros:</strong> ${effects.pros}</p>
+                <p><strong>Cons:</strong> ${effects.cons}</p>
+            `;
+                modalBranchList.appendChild(branchDiv);
+            }
+
+            // Populate Card Powers
+            const cardPowersList = document.getElementById('card-powers-list');
+            cardPowersList.innerHTML = '';
+            allCards.forEach(card => {
+                const cardInfoDiv = document.createElement('div');
+                cardInfoDiv.className = 'card-info';
+                cardInfoDiv.innerHTML = `
+                <strong>${card.name}</strong> (${card.icon}) (Type: ${card.type}) (Cost: ${card.cost})<br>
+                ${card.description}
+            `;
+                cardPowersList.appendChild(cardInfoDiv);
+            });
+        }
+
+        // Game History Modal Functions
+        function openGameHistoryModal() {
+            const modal = document.getElementById('game-history-modal');
+            modal.classList.add('show');
+            updateGameHistoryDisplay();
+        }
+
+        function closeGameHistoryModal() {
+            const modal = document.getElementById('game-history-modal');
+            modal.classList.remove('show');
+        }
+
+        function updateGameHistoryDisplay() {
+            const historyLogDiv = document.getElementById('game-history-log');
+            historyLogDiv.innerHTML = '';
+            gameHistoryLog.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = `history-entry ${entry.type}`;
+                entryDiv.innerHTML = `<strong>Turn ${entry.turn} (${entry.phase}):</strong> ${entry.message}`;
+                historyLogDiv.appendChild(entryDiv);
+            });
+            historyLogDiv.scrollTop = historyLogDiv.scrollHeight; // Auto-scroll to bottom
+        }
+
+        // --- Chatbot Functions ---
+        function openChatbotModal() {
+            const modal = document.getElementById('chatbot-modal');
+            modal.classList.add('show');
+            document.getElementById('chat-input').focus(); // Focus on input when opened
+
+            // Scroll to bottom of chat history
+            const chatHistoryDiv = document.getElementById('chat-history-display');
+            chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
+        }
+
+        function closeChatbotModal() {
+            const modal = document.getElementById('chatbot-modal');
+            modal.classList.remove('show');
+        }
+
+        function addChatMessage(message, sender) {
+            const chatHistoryDiv = document.getElementById('chat-history-display');
+            const messageElem = document.createElement('div');
+            messageElem.className = `chat-message ${sender}`;
+            messageElem.textContent = message;
+            chatHistoryDiv.appendChild(messageElem);
+            chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight; // Auto-scroll to bottom
+        }
+
+        async function sendChatMessage() {
+            const chatInput = document.getElementById('chat-input');
+            const userMessage = chatInput.value.trim();
+            if (!userMessage) return;
+
+            addChatMessage(userMessage, 'user');
+            chatInput.value = '';
+            document.getElementById('send-chat-btn').disabled = true;
+            document.getElementById('chat-loading-indicator').style.display = 'block';
+
+            // Prepare context for the chatbot
+            const gameContext = `
+            You are a helpful Math Bot for a game called "Mathematical Card Battle".
+            Players use cards to manipulate "Intellectual Power (IP)" of themselves or their opponent.
+
+            Game Rules:
+            - Objective: Reduce opponent's IP to 0. The game enters a 2-round grace period when IP reaches 0.
+            - Tokens: Resource to play cards. Regenerate each turn.
+            - IP: Health. Can be positive, negative, irrational (if divided by Pi), or imaginary (if multiplied by 'i').
+            - Phases: Draw -> Play -> Battle -> Heal.
+            - Cards:
+                - Number Cards (Blue): Direct numerical changes.
+                - Action Cards (Orange): Apply mathematical transformations (e.g., square root, logarithm, derivative).
+                - Theorem Cards (Red): Powerful, often game-changing effects (e.g., Pi, Euler's Identity, Complex Rotation).
+            - Special Status:
+                - Irrational IP: If IP is divided by Pi, it becomes irrational. "Natural Number Set" card can set irrational IP to 0.
+                - Imaginary IP: If IP is multiplied by 'i' (Complex Rotation card), it becomes imaginary. General attacks and some effects don't work on it. "Real Projection" card can set imaginary IP to 0.
+                - Block Damage: Reduces incoming damage.
+                - Damage/Heal Over Time: Effects that apply over several turns.
+                - Double Damage Next Turn: Next damage card deals double.
+                - Reflect Damage: Reflects a portion of incoming damage back to the source.
+            
+            Mathematical Branches (Player's choice at start):
+            ${Object.entries(branchEffects).map(([branchName, effects]) => `${branchName}: Pros: ${effects.pros}. Cons: ${effects.cons}.` ).join('\n')}
+
+            Available Cards and their effects:
+            ${allCards.map(card => `Name: ${card.name} (Type: ${card.type}, Cost: ${card.cost}): ${card.description}` ).join('\n')}
+
+            Current Game State:
+            Player 1 IP: ${players.player1.ip.toFixed(2)} ${players.player1.isIPIrrational ? '(Irrational)' : ''} ${players.player1.isIPImaginary ? '(Imaginary)' : ''} ${players.player1.inGracePeriod ? `(In Grace Period: ${players.player1.graceRoundsRemaining} turns left)` : ''}
+            Player 2 IP: ${players.player2.ip.toFixed(2)} ${players.player2.isIPIrrational ? '(Irrational)' : ''} ${players.player2.isIPImaginary ? '(Imaginary)' : ''} ${players.player2.inGracePeriod ? `(In Grace Period: ${players.player2.graceRoundsRemaining} turns left)` : ''}
+            Player 1 Tokens: ${players.player1.tokens}
+            Player 2 Tokens: ${players.player2.tokens}
+            Current Phase: ${currentPhase}
+            Player 1 Selected Branch: ${players.player1.selectedBranch}
+            Player 2 Selected Branch: ${players.player2.selectedBranch}
+            Player 1 Block Damage: ${players.player1.blockDamage}
+            Player 2 Block Damage: ${players.player2.blockDamage}
+            Player 1 Damage Over Time: ${players.player1.damageOverTime.active ? `Active, ${players.player1.damageOverTime.value} for ${players.player1.damageOverTime.turns} turns` : 'Inactive'}
+            Player 2 Damage Over Time: ${players.player2.damageOverTime.active ? `Active, ${players.player2.damageOverTime.value} for ${players.player2.damageOverTime.turns} turns` : 'Inactive'}
+            Player 1 Heal Over Time: ${players.player1.healOverTime.active ? `Active, ${players.player1.healOverTime.value} for ${players.player1.healOverTime.turns} turns` : 'Inactive'}
+            Player 2 Heal Over Time: ${players.player2.healOverTime.active ? `Active, ${players.player2.healOverTime.value} for ${players.player2.healOverTime.turns} turns` : 'Inactive'}
+            Player 1 Double Damage Next Turn: ${players.player1.doubleDamageNextTurn ? 'Active' : 'Inactive'}
+            Player 2 Double Damage Next Turn: ${players.player2.doubleDamageNextTurn ? 'Active' : 'Inactive'}
+            Player 1 Reflect Damage: ${players.player1.reflectDamage.active ? `Active, ${players.player1.reflectDamage.value * 100}% for ${players.player1.reflectDamage.turns} turns` : 'Inactive'}
+            Player 2 Reflect Damage: ${players.player2.reflectDamage.active ? `Active, ${players.player2.reflectDamage.value * 100}% for ${players.player2.reflectDamage.turns} turns` : 'Inactive'}
+            Player 1 Hand Size: ${players.player1.hand.length}
+            Player 2 Hand Size: ${players.player2.hand.length}
+            Deck Size: ${deck.length}
+            Discard Pile Size: ${discardPile.length}
+            Current Turn: ${currentTurn}
+            Current Player: ${currentPlayer} (${gameMode === 'vs_ai' && currentPlayer === 'player2' ? 'AI' : (gameMode === 'vs_local_player' && currentPlayer === 'player2' ? 'Local Player 2' : 'Local Player 1')})
+
+            Only answer questions related to the game. If asked to play, explain that you are a bot and cannot play. Provide answers in Hinglish.
+        `;
+
+            try {
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [{
+                            text: gameContext + "\n\nUser's question: " + userMessage
+                        }]
+                    }]
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                    const botResponse = result.candidates[0].content.parts[0].text;
+                    addChatMessage(botResponse, 'bot');
+                } else {
+                    addChatMessage("Sorry, main abhi aapke sawaal ka jawab nahi de pa raha hoon. Kuch gadbad ho gayi.", 'bot');
+                }
+            } catch (error) {
+                console.error('Chatbot API error:', error);
+                addChatMessage("Network error ho gaya ya API call mein problem hai. Please try again.", 'bot');
+            } finally {
+                document.getElementById('send-chat-btn').disabled = false;
+                document.getElementById('chat-loading-indicator').style.display = 'none';
+            }
+        }
+
+
+        // Function to toggle visibility of setup options
+        function toggleSetupVisibility() {
+            const gameModeSelect = document.getElementById('game-mode');
+            const player2BranchContainer = document.getElementById('player2-branch-selection-container');
+            const player2BranchSelect = document.getElementById('branch-player2');
+            const player2BranchDisplay = document.getElementById('branch-effect-display-player2');
+            const aiDifficultyContainer = document.getElementById('ai-difficulty-select');
+
+            if (gameModeSelect.value === 'vs_ai') {
+                player2BranchContainer.style.display = 'none';
+                player2BranchDisplay.style.display = 'none';
+                aiDifficultyContainer.style.display = 'flex';
+            } else { // vs_local_player
+                player2BranchContainer.style.display = 'flex';
+                aiDifficultyContainer.style.display = 'none';
+                // Only show display if a branch is selected (or default)
+                if (player2BranchSelect.value) {
+                    player2BranchDisplay.style.display = 'block';
+                }
+            }
+        }
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', () => {
+            displayBranchEffects('player1'); // Show default branch info for player 1
+            displayBranchEffects('player2'); // Show default branch info for player 2
+            updateStatus();
+            updateDeckDiscardCounts();
+            document.getElementById('game-ui').style.display = 'none'; // Hide game UI until start
+
+            // Add event listener for game mode selection change
+            document.getElementById('game-mode').addEventListener('change', toggleSetupVisibility);
+            // Set initial visibility based on default game mode
+            toggleSetupVisibility();
+
+            // Event listener for Enter key in chatbot input
+            document.getElementById('chat-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+            
+            // Angle Slider event listeners
+            const player1Slider = document.getElementById('player1-angle-slider');
+            const player1AngleValue = document.getElementById('player1-angle-value');
+            player1Slider.addEventListener('input', (event) => {
+                const angle = event.target.value;
+                player1AngleValue.textContent = angle;
+                players.player1.angle = parseInt(angle, 10);
+            });
+
+            const player2Slider = document.getElementById('player2-angle-slider');
+            const player2AngleValue = document.getElementById('player2-angle-value');
+            player2Slider.addEventListener('input', (event) => {
+                const angle = event.target.value;
+                player2AngleValue.textContent = angle;
+                players.player2.angle = parseInt(angle, 10);
+            });
+        });
+    
+        // ====== MULTIPLAYER FUNCTIONALITY ======
+        let socket = null;
+        let currentRoom = null;
+        let isMultiplayer = false;
+        let myPlayerId = null;
+        let opponentInfo = null;
+
+        function initializeMultiplayer() {
+            const serverUrl = window.location.hostname === 'localhost' 
+                ? 'http://localhost:3001' 
+                : 'https://your-backend-url.onrender.com'; // Replace with your Render URL
+
+            socket = io(serverUrl);
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                myPlayerId = socket.id;
+            });
+
+            socket.on('waitingForOpponent', () => {
+                showMessage('Waiting for opponent to join...', 3000);
+            });
+
+            socket.on('gameMatched', (data) => {
+                currentRoom = data.roomId;
+                opponentInfo = data.players.find(p => p.id !== myPlayerId);
+                showMessage(`Matched with ${opponentInfo.name}! Choose your math branch.`, 3000);
+
+                // Show branch selection for multiplayer
+                showBranchSelection();
+            });
+
+            socket.on('branchSet', (data) => {
+                if (data.playerId !== myPlayerId) {
+                    showMessage(`${opponentInfo.name} has chosen their branch!`, 2000);
+                }
+            });
+
+            socket.on('gameStarted', (data) => {
+                // Initialize multiplayer game state
+                gameState = data.gameState;
+
+                // Set up player displays
+                const isPlayer1 = data.players.find(p => p.id === myPlayerId).playerNumber === 1;
+
+                if (isPlayer1) {
+                    playerStates.player1 = data.playerStates[myPlayerId];
+                    playerStates.player2 = data.playerStates[opponentInfo.id];
+                    document.getElementById('player1-name-display').textContent = 'Your IP:';
+                    document.getElementById('player2-name-display').textContent = `${opponentInfo.name}'s IP:`;
+                } else {
+                    playerStates.player1 = data.playerStates[opponentInfo.id];
+                    playerStates.player2 = data.playerStates[myPlayerId];
+                    document.getElementById('player1-name-display').textContent = `${opponentInfo.name}'s IP:`;
+                    document.getElementById('player2-name-display').textContent = 'Your IP:';
+                }
+
+                updateDisplay();
+                showMessage('Game started! Battle begins!', 3000);
+
+                // Start the game UI
+                showGameScreen();
+            });
+
+            socket.on('cardPlayed', (data) => {
+                const isMyCard = data.playerId === myPlayerId;
+                const playerName = isMyCard ? 'You' : opponentInfo.name;
+
+                // Update game state
+                if (data.playerStates[myPlayerId]) {
+                    const isPlayer1 = data.result.gameState?.players?.[0]?.id === myPlayerId;
+                    if (isPlayer1) {
+                        playerStates.player1 = data.playerStates[myPlayerId];
+                        playerStates.player2 = data.playerStates[opponentInfo.id];
+                    } else {
+                        playerStates.player1 = data.playerStates[opponentInfo.id];
+                        playerStates.player2 = data.playerStates[myPlayerId];
+                    }
+                }
+
+                // Show card effect
+                showMessage(`${playerName} played ${data.card.name}: ${data.result.description}`, 3000);
+
+                // Update display
+                updateDisplay();
+
+                // Check for game end
+                if (data.gameState.winner) {
+                    const winner = data.gameState.winner === myPlayerId ? 'You' : opponentInfo.name;
+                    showMessage(`Game Over! ${winner} wins!`, 5000);
+                }
+            });
+
+            socket.on('turnChanged', (data) => {
+                const isMyTurn = data.currentPlayerId === myPlayerId;
+                gameState.currentPlayer = isMyTurn ? 'player1' : 'player2'; // Adjust based on perspective
+
+                if (isMyTurn) {
+                    showMessage('Your turn!', 2000);
+                } else {
+                    showMessage(`${opponentInfo.name}'s turn`, 2000);
+                }
+
+                updateDisplay();
+            });
+
+            socket.on('playerDisconnected', () => {
+                showMessage('Opponent disconnected. Game ended.', 5000);
+                // Optionally return to main menu
+            });
+
+            socket.on('disconnect', () => {
+                showMessage('Disconnected from server', 3000);
+            });
+        }
+
+        function startMultiplayerGame() {
+            isMultiplayer = true;
+            gameMode = 'multiplayer';
+
+            if (!socket) {
+                initializeMultiplayer();
+            }
+
+            // Get player name
+            const playerName = prompt('Enter your name:') || 'Anonymous Player';
+
+            // Find a game
+            socket.emit('findGame', { playerName: playerName });
+
+            // Hide main menu and show waiting screen
+            hideMainMenu();
+            showMessage('Finding opponent...', 5000);
+        }
+
+        function showBranchSelection() {
+            document.getElementById('setup-screen').style.display = 'block';
+            document.getElementById('main-menu').style.display = 'none';
+        }
+
+        function showGameScreen() {
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+        }
+
+        function hideMainMenu() {
+            document.getElementById('main-menu').style.display = 'none';
+        }
+
+        // Override the original branch selection for multiplayer
+        function handleMultiplayerBranchSelection(player, branch) {
+            if (isMultiplayer && socket && currentRoom) {
+                socket.emit('setBranch', { roomId: currentRoom, branch: branch });
+            }
+        }
+
+        // Override card play for multiplayer
+        function playCardMultiplayer(cardId, targetPlayerId = null) {
+            if (isMultiplayer && socket && currentRoom) {
+                socket.emit('playCard', { 
+                    roomId: currentRoom, 
+                    cardId: cardId, 
+                    targetId: targetPlayerId 
+                });
+                return true;
+            }
+            return false;
+        }
+
+        // Modify the original displayBranchEffects function to handle multiplayer
+        const originalDisplayBranchEffects = window.displayBranchEffects;
+        window.displayBranchEffects = function(player) {
+            if (isMultiplayer && player === 'player1') {
+                // In multiplayer, player1 is always the current player
+                const select = document.getElementById('branch-player1');
+                const branch = select.value;
+
+                if (branch && branch !== 'none') {
+                    handleMultiplayerBranchSelection(player, branch);
+                }
+            }
+
+            // Call original function
+            if (originalDisplayBranchEffects) {
+                originalDisplayBranchEffects(player);
+            }
+        };
+
+        // Modify the start game function to handle multiplayer
+        const originalStartGame = window.startGame;
+        window.startGame = function() {
+            const gameModeSelect = document.getElementById('game-mode');
+            const selectedMode = gameModeSelect.value;
+
+            if (selectedMode === 'multiplayer') {
+                startMultiplayerGame();
+                return;
+            }
+
+            // Call original function for other modes
+            if (originalStartGame) {
+                originalStartGame();
+            }
+        };
+
+        // Add disconnect handler
+        window.addEventListener('beforeunload', () => {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+
+</script>
+</body>
+</html>
