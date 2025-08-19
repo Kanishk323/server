@@ -1,243 +1,207 @@
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
+const server = createServer(app);
+
+// Configure CORS for Socket.IO
+const io = new Server(server, {
     cors: {
         origin: "*",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// Store active games and players
-const games = new Map();
-const waitingPlayers = [];
+// Middleware
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-// Serve static files
-app.use(express.static(path.join(__dirname)));
+// Simple multiplayer game management
+class MultiplayerGameManager {
+    constructor() {
+        this.rooms = new Map();
+        this.waitingPlayers = [];
+    }
 
+    addWaitingPlayer(socket, playerData) {
+        const player = {
+            id: socket.id,
+            socket: socket,
+            name: playerData.name || `Player_${socket.id.substring(0, 6)}`
+        };
+
+        this.waitingPlayers.push(player);
+
+        // If we have 2 players, create a room
+        if (this.waitingPlayers.length >= 2) {
+            const player1 = this.waitingPlayers.shift();
+            const player2 = this.waitingPlayers.shift();
+
+            const roomId = uuidv4();
+            const room = {
+                id: roomId,
+                players: [player1, player2],
+                gameState: null,
+                createdAt: new Date()
+            };
+
+            this.rooms.set(roomId, room);
+
+            // Join both players to the room
+            player1.socket.join(roomId);
+            player2.socket.join(roomId);
+
+            // Notify players
+            player1.socket.emit('gameFound', {
+                roomId: roomId,
+                opponent: player2.name,
+                role: 'player1'
+            });
+
+            player2.socket.emit('gameFound', {
+                roomId: roomId,
+                opponent: player1.name,
+                role: 'player2'
+            });
+
+            return room;
+        }
+
+        return null;
+    }
+
+    removePlayer(socketId) {
+        // Remove from waiting list
+        this.waitingPlayers = this.waitingPlayers.filter(p => p.id !== socketId);
+
+        // Remove from rooms
+        for (let [roomId, room] of this.rooms.entries()) {
+            const playerIndex = room.players.findIndex(p => p.id === socketId);
+            if (playerIndex !== -1) {
+                // Notify other player
+                const otherPlayer = room.players[1 - playerIndex];
+                if (otherPlayer && otherPlayer.socket) {
+                    otherPlayer.socket.emit('opponentDisconnected');
+                }
+
+                // Remove room after delay
+                setTimeout(() => {
+                    this.rooms.delete(roomId);
+                }, 30000);
+
+                break;
+            }
+        }
+    }
+
+    getRoom(roomId) {
+        return this.rooms.get(roomId);
+    }
+}
+
+const gameManager = new MultiplayerGameManager();
+
+// Serve the main game file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        activeRooms: gameManager.rooms.size,
+        waitingPlayers: gameManager.waitingPlayers.length
+    });
 });
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-    console.log(`Player connected: ${socket.id}`);
+    console.log('User connected:', socket.id);
+    let currentRoom = null;
 
-    // Handle player joining queue
-    socket.on('join-queue', (playerData) => {
-        const player = {
-            id: socket.id,
-            name: playerData.name || `Player_${socket.id.substring(0, 6)}`,
-            socket: socket
-        };
+    // Handle joining multiplayer queue
+    socket.on('joinMultiplayer', (playerData) => {
+        console.log('Player joining multiplayer:', playerData);
 
-        // Check if there's a waiting player
-        if (waitingPlayers.length > 0) {
-            const opponent = waitingPlayers.shift();
+        const room = gameManager.addWaitingPlayer(socket, playerData);
 
-            // Create new game
-            const gameId = `game_${Date.now()}`;
-            const game = {
-                id: gameId,
-                players: {
-                    player1: player,
-                    player2: opponent
-                },
-                gameState: {
-                    currentTurn: 'player1',
-                    turnCount: 1,
-                    gamePhase: 'playing',
-                    player1: {
-                        ip: 100.0,
-                        tokens: 10,
-                        hand: [],
-                        blockDamage: 0,
-                        damageOverTime: { active: false, value: 0, turns: 0 },
-                        healOverTime: { active: false, value: 0, turns: 0 },
-                        doubleDamageNextTurn: false,
-                        reflectDamage: { active: false, value: 0, turns: 0 },
-                        isIPIrrational: false,
-                        isIPImaginary: false,
-                        selectedBranch: '',
-                        inGracePeriod: false,
-                        graceRoundsRemaining: -1,
-                        angle: 0
-                    },
-                    player2: {
-                        ip: 100.0,
-                        tokens: 10,
-                        hand: [],
-                        blockDamage: 0,
-                        damageOverTime: { active: false, value: 0, turns: 0 },
-                        healOverTime: { active: false, value: 0, turns: 0 },
-                        doubleDamageNextTurn: false,
-                        reflectDamage: { active: false, value: 0, turns: 0 },
-                        isIPIrrational: false,
-                        isIPImaginary: false,
-                        selectedBranch: '',
-                        inGracePeriod: false,
-                        graceRoundsRemaining: -1,
-                        angle: 0
-                    }
-                }
-            };
-
-            games.set(gameId, game);
-
-            // Join both players to game room
-            player.socket.join(gameId);
-            opponent.socket.join(gameId);
-
-            // Notify both players that game started
-            io.to(gameId).emit('game-start', {
-                gameId: gameId,
-                players: {
-                    player1: { name: player.name, id: player.id },
-                    player2: { name: opponent.name, id: opponent.id }
-                },
-                gameState: game.gameState
-            });
-
-            // Tell each player their role
-            player.socket.emit('player-role', { role: 'player1', opponent: opponent.name });
-            opponent.socket.emit('player-role', { role: 'player2', opponent: player.name });
-
-        } else {
-            // Add to waiting queue
-            waitingPlayers.push(player);
-            socket.emit('waiting-for-opponent');
+        if (!room) {
+            socket.emit('waitingForOpponent');
         }
     });
 
-    // Handle game moves
-    socket.on('make-move', (data) => {
-        const game = findGameByPlayerId(socket.id);
-        if (!game) return;
+    // Handle game state synchronization
+    socket.on('gameStateUpdate', (data) => {
+        if (currentRoom) {
+            // Broadcast game state to other players in room
+            socket.to(currentRoom).emit('gameStateSync', data);
+        }
+    });
 
-        // Validate move and update game state
-        if (isValidMove(game, socket.id, data)) {
-            updateGameState(game, data);
+    // Handle card plays (sync between players)
+    socket.on('cardPlayed', (data) => {
+        if (currentRoom) {
+            socket.to(currentRoom).emit('opponentCardPlayed', data);
+        }
+    });
 
-            // Broadcast updated state to both players
-            io.to(game.id).emit('game-update', {
-                gameState: game.gameState,
-                move: data
-            });
+    // Handle turn changes
+    socket.on('turnEnded', (data) => {
+        if (currentRoom) {
+            socket.to(currentRoom).emit('opponentTurnEnded', data);
+        }
+    });
 
-            // Check for game end
-            if (checkGameEnd(game)) {
-                const winner = getWinner(game);
-                io.to(game.id).emit('game-end', { winner: winner });
-                games.delete(game.id);
-            }
+    // Handle game end
+    socket.on('gameEnded', (data) => {
+        if (currentRoom) {
+            socket.to(currentRoom).emit('opponentGameEnded', data);
         }
     });
 
     // Handle chat messages
-    socket.on('chat-message', (data) => {
-        const game = findGameByPlayerId(socket.id);
-        if (!game) return;
-
-        const player = getPlayerRole(game, socket.id);
-        io.to(game.id).emit('chat-message', {
-            player: player,
-            message: data.message,
-            timestamp: Date.now()
-        });
+    socket.on('chatMessage', (data) => {
+        if (currentRoom) {
+            socket.to(currentRoom).emit('opponentChatMessage', {
+                message: data.message,
+                timestamp: new Date()
+            });
+        }
     });
 
-    // Handle player disconnect
+    // Handle room joining
+    socket.on('joinRoom', (roomId) => {
+        currentRoom = roomId;
+        socket.join(roomId);
+    });
+
+    // Handle disconnect
     socket.on('disconnect', () => {
-        console.log(`Player disconnected: ${socket.id}`);
-
-        // Remove from waiting queue
-        const waitingIndex = waitingPlayers.findIndex(p => p.id === socket.id);
-        if (waitingIndex > -1) {
-            waitingPlayers.splice(waitingIndex, 1);
-        }
-
-        // Handle game disconnect
-        const game = findGameByPlayerId(socket.id);
-        if (game) {
-            socket.to(game.id).emit('opponent-disconnected');
-            games.delete(game.id);
-        }
+        console.log('User disconnected:', socket.id);
+        gameManager.removePlayer(socket.id);
     });
 });
 
-// Helper functions
-function findGameByPlayerId(playerId) {
-    for (const game of games.values()) {
-        if (game.players.player1.id === playerId || game.players.player2.id === playerId) {
-            return game;
-        }
-    }
-    return null;
-}
+// Start server
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Mathematical Card Battle Multiplayer Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
 
-function getPlayerRole(game, playerId) {
-    if (game.players.player1.id === playerId) return 'player1';
-    if (game.players.player2.id === playerId) return 'player2';
-    return null;
-}
-
-function isValidMove(game, playerId, moveData) {
-    const playerRole = getPlayerRole(game, playerId);
-    return playerRole === game.gameState.currentTurn;
-}
-
-function updateGameState(game, moveData) {
-    // Update game state based on move
-    // This would contain the actual game logic
-    const currentPlayer = game.gameState.currentTurn;
-    const nextPlayer = currentPlayer === 'player1' ? 'player2' : 'player1';
-
-    // Apply move effects to game state
-    if (moveData.type === 'play-card') {
-        // Handle card play logic
-        applyCardEffect(game, currentPlayer, moveData.card);
-    } else if (moveData.type === 'end-turn') {
-        // Handle turn end
-        game.gameState.currentTurn = nextPlayer;
-        game.gameState.turnCount++;
-    }
-}
-
-function applyCardEffect(game, player, card) {
-    // Implement card effect logic based on the original game
-    const targetPlayer = player === 'player1' ? 'player2' : 'player1';
-    const gameState = game.gameState;
-
-    // This would contain the full card effect logic from the original game
-    switch(card.type) {
-        case 'damage':
-            gameState[targetPlayer].ip -= card.value;
-            break;
-        case 'heal':
-            gameState[player].ip += card.value;
-            break;
-        // Add more card types as needed
-    }
-}
-
-function checkGameEnd(game) {
-    return game.gameState.player1.ip <= 0 || game.gameState.player2.ip <= 0;
-}
-
-function getWinner(game) {
-    if (game.gameState.player1.ip <= 0) return 'player2';
-    if (game.gameState.player2.ip <= 0) return 'player1';
-    return null;
-}
-
-server.listen(PORT, () => {
-    console.log(`🚀 Multiplayer Card Battle Server running on port ${PORT}`);
-    console.log(`🌐 Game URL: http://localhost:${PORT}`);
-    console.log(`👥 Waiting for players to connect...`);
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('Process terminated');
+    });
 });
