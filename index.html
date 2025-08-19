@@ -19,7 +19,7 @@
             align-items: center;
             min-height: 100vh;
             color: #333;
-            overflow-x: hidden; 
+            overflow-x: hidden;
         }
 
         #game-container {
@@ -778,111 +778,10 @@
             }
         }
     </style>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
-    <!-- Multiplayer Lobby -->
-    <div id="multiplayer-lobby" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
-            <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">Join Multiplayer Game</h2>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Your Name:</label>
-                <input type="text" id="player-name-input" placeholder="Enter your name" 
-                       class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <div class="mb-4">
-                <div class="text-sm text-gray-600 mb-2">Connection Status: 
-                    <span id="connection-status" class="font-medium">Connecting...</span>
-                </div>
-            </div>
-
-            <div class="flex gap-3">
-                <button onclick="joinMultiplayerQueue()" 
-                        class="flex-1 bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors">
-                    Find Opponent
-                </button>
-                <button onclick="document.getElementById('multiplayer-lobby').style.display='none'" 
-                        class="flex-1 bg-gray-500 text-white p-3 rounded-lg hover:bg-gray-600 transition-colors">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Game Messages -->
-    <div id="game-messages" class="message"></div>
-
-    <!-- Multiplayer Chat -->
-    <div id="multiplayer-chat" class="fixed bottom-4 right-4 w-80 bg-white border border-gray-300 rounded-lg shadow-lg" style="display: none;">
-        <div class="bg-blue-600 text-white p-3 rounded-t-lg">
-            <h3 class="font-bold">Chat</h3>
-        </div>
-        <div id="multiplayer-chat-messages" class="h-40 overflow-y-auto p-3 bg-gray-50">
-            <!-- Chat messages will appear here -->
-        </div>
-        <div class="p-3 border-t">
-            <div class="flex gap-2">
-                <input type="text" id="multiplayer-chat-input" placeholder="Type a message..." 
-                       class="flex-1 p-2 border border-gray-300 rounded" 
-                       onkeypress="if(event.key==='Enter') sendMultiplayerChat()">
-                <button onclick="sendMultiplayerChat()" 
-                        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Send
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        .message {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: bold;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .message.info {
-            background-color: #3b82f6;
-            color: white;
-            opacity: 1;
-        }
-
-        .message.success {
-            background-color: #10b981;
-            color: white;
-            opacity: 1;
-        }
-
-        .message.warning {
-            background-color: #f59e0b;
-            color: white;
-            opacity: 1;
-        }
-
-        .message.error {
-            background-color: #ef4444;
-            color: white;
-            opacity: 1;
-        }
-
-        .chat-message {
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-
     <div id="game-container">
         <h1>Mathematical Card Battle</h1>
         <div id="game-mode-select">
@@ -1070,6 +969,37 @@
     </div>
 
     <script>
+        // Multiplayer State (added for multiplayer support)
+        let socket = null;
+        let isMultiplayer = false;
+        let playerRole = null;
+        let roomId = null;
+
+        // Initialize multiplayer connection if available
+        function initMultiplayer() {
+            if (typeof io !== 'undefined') {
+                socket = io();
+                socket.on('connect', () => {
+                    console.log('Connected to multiplayer server');
+                    isMultiplayer = true;
+                });
+                socket.on('disconnect', () => {
+                    console.log('Disconnected from multiplayer server');
+                    isMultiplayer = false;
+                });
+                // Add other multiplayer event handlers here
+            }
+        }
+
+        // Call on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                initMultiplayer();
+            } catch (e) {
+                console.log('Multiplayer not available, running in single-player mode');
+            }
+        });
+
         // Game State
         let gameMode = 'vs_ai'; // 'vs_ai' or 'vs_local_player'
         let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
@@ -1158,7 +1088,7 @@
 
         // Chatbot state
         let chatHistory = [];
-        const API_KEY = "YOUR_API_KEY";
+        const API_KEY = "AIzaSyB_wWYdPdcyJparBp-2_0EZyMCuaRgHYfA";
 
         // Double tap detection variables
         let lastTapTime = 0;
@@ -2671,13 +2601,13 @@
             if (players.player1.ip <= 0 && !players.player1.inGracePeriod) {
                 players.player1.inGracePeriod = true;
                 players.player1.graceRoundsRemaining = 4;
-                showMessage('Aapka IP 0 ho gaya! Aap ab 2-round grace period mein hain. Heal karo!', 8000);
+                showMessage('Aapka IP 0 ho gaya! Aap ab 3-round grace period mein hain. Heal karo!', 8000);
                 logGameEvent('Player 1 entered grace period.', 'game-event');
             }
             if (players.player2.ip <= 0 && !players.player2.inGracePeriod) {
                 players.player2.inGracePeriod = true;
                 players.player2.graceRoundsRemaining = 4;
-                showMessage(`${gameMode === 'vs_ai' ? 'AI' : 'Player 2'} ka IP 0 ho gaya! Woh ab 2-round grace period mein hain.`, 8000);
+                showMessage(`${gameMode === 'vs_ai' ? 'AI' : 'Player 2'} ka IP 0 ho gaya! Woh ab 3-round grace period mein hain.`, 8000);
                 logGameEvent('Player 2 entered grace period.', 'game-event');
             }
 
@@ -2994,164 +2924,5 @@
             });
         });
     </script>
-
-    <!-- Socket.IO Client -->
-    <script src="/socket.io/socket.io.js"></script>
-
-    <script>
-        // Multiplayer functionality
-        let socket;
-        let isMultiplayer = false;
-        let playerRole = null; // 'player1' or 'player2'
-        let gameId = null;
-        let opponentName = '';
-
-        // Initialize multiplayer connection
-        function initMultiplayer() {
-            socket = io();
-            isMultiplayer = true;
-
-            // Connection events
-            socket.on('connect', () => {
-                console.log('Connected to server');
-                document.getElementById('connection-status').textContent = 'Connected';
-                document.getElementById('connection-status').className = 'text-green-600';
-            });
-
-            socket.on('disconnect', () => {
-                console.log('Disconnected from server');
-                document.getElementById('connection-status').textContent = 'Disconnected';
-                document.getElementById('connection-status').className = 'text-red-600';
-            });
-
-            // Game events
-            socket.on('waiting-for-opponent', () => {
-                showMessage('Waiting for opponent...', 'info');
-            });
-
-            socket.on('game-start', (data) => {
-                gameId = data.gameId;
-                showMessage(`Game started! Playing against ${getOpponentName(data.players)}`, 'success');
-                // Initialize game with server state
-                updateGameFromServer(data.gameState);
-            });
-
-            socket.on('player-role', (data) => {
-                playerRole = data.role;
-                opponentName = data.opponent;
-                updatePlayerLabels();
-            });
-
-            socket.on('game-update', (data) => {
-                updateGameFromServer(data.gameState);
-                showMessage(`Opponent played: ${data.move.description || 'a card'}`, 'info');
-            });
-
-            socket.on('chat-message', (data) => {
-                addChatMessage(data.player, data.message, data.timestamp);
-            });
-
-            socket.on('opponent-disconnected', () => {
-                showMessage('Opponent disconnected', 'warning');
-            });
-
-            socket.on('game-end', (data) => {
-                const winnerText = data.winner === playerRole ? 'You Won!' : 'You Lost!';
-                showMessage(winnerText, data.winner === playerRole ? 'success' : 'error');
-            });
-        }
-
-        // Join multiplayer queue
-        function joinMultiplayerQueue() {
-            if (!socket) initMultiplayer();
-
-            const playerName = document.getElementById('player-name-input').value || 'Anonymous';
-            socket.emit('join-queue', { name: playerName });
-
-            document.getElementById('multiplayer-lobby').style.display = 'none';
-            document.getElementById('game-container').style.display = 'block';
-        }
-
-        // Send move to server
-        function sendMoveToServer(moveData) {
-            if (socket && isMultiplayer) {
-                socket.emit('make-move', moveData);
-            }
-        }
-
-        // Send chat message
-        function sendMultiplayerChat() {
-            const input = document.getElementById('multiplayer-chat-input');
-            const message = input.value.trim();
-            if (message && socket) {
-                socket.emit('chat-message', { message: message });
-                input.value = '';
-            }
-        }
-
-        // Update game state from server
-        function updateGameFromServer(serverGameState) {
-            // Sync local game state with server
-            players.player1 = serverGameState.player1;
-            players.player2 = serverGameState.player2;
-            currentTurn = serverGameState.currentTurn;
-            turnCount = serverGameState.turnCount;
-
-            // Update UI
-            updateDisplay();
-            updateTurnIndicator();
-        }
-
-        // Helper functions
-        function getOpponentName(playersData) {
-            return playerRole === 'player1' ? playersData.player2.name : playersData.player1.name;
-        }
-
-        function updatePlayerLabels() {
-            if (playerRole === 'player1') {
-                document.getElementById('player1-label').textContent = 'You';
-                document.getElementById('player2-label').textContent = opponentName;
-            } else {
-                document.getElementById('player1-label').textContent = opponentName;
-                document.getElementById('player2-label').textContent = 'You';
-            }
-        }
-
-        function addChatMessage(player, message, timestamp) {
-            const chatContainer = document.getElementById('multiplayer-chat-messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message p-2 mb-2 rounded';
-
-            const time = new Date(timestamp).toLocaleTimeString();
-            const playerName = player === playerRole ? 'You' : opponentName;
-
-            messageDiv.innerHTML = `
-                <div class="font-bold text-sm">${playerName} <span class="text-gray-500 text-xs">${time}</span></div>
-                <div>${message}</div>
-            `;
-
-            if (player === playerRole) {
-                messageDiv.classList.add('bg-blue-100');
-            } else {
-                messageDiv.classList.add('bg-gray-100');
-            }
-
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        function showMessage(text, type) {
-            // Show in-game messages
-            const messageDiv = document.getElementById('game-messages');
-            messageDiv.textContent = text;
-            messageDiv.className = `message ${type}`;
-
-            setTimeout(() => {
-                messageDiv.textContent = '';
-                messageDiv.className = 'message';
-            }, 3000);
-        }
-    </script>
-
 </body>
 </html>
