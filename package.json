@@ -1,24 +1,28 @@
 {
-  "name": "mathematical-card-battle-game",
+  "name": "mathematical-card-battle-multiplayer",
   "version": "1.0.0",
-  "description": "A mathematical card battle game with interactive gameplay",
-  "main": "index.html",
+  "description": "A real-time multiplayer mathematical card battle game",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "echo 'Static site - no build needed'",
-    "dev": "npx http-server -p 3000"
+    "dev": "nodemon server.js"
   },
   "keywords": [
     "game",
+    "multiplayer",
     "mathematics",
     "cards",
     "battle",
-    "educational"
+    "realtime"
   ],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   },
   "engines": {
     "node": ">=16.0.0"
